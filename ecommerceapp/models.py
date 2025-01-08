@@ -35,4 +35,24 @@ class BookingTour(models.Model):
 
     def __str__(self):
         return f"Booking by {self.user.email} for {self.package.name}"
+    
+class Payment(models.Model):
+    booking = models.ForeignKey(BookingTour,on_delete=models.CASCADE)
+    status = models.CharField(max_length=50,choices=[('pending','Pending'),('completed','Completed'),('failed','Failed')])
+    amount = models.DecimalField(max_digits=10,decimal_places=2)
+    created_date =models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Payment for Booking {self.booking.id} - {self.status}"
+    
+class ContactQuery(models.Model):
+    name = models.CharField(max_length=100)
+    email = models.EmailField(unique=True)
+    contact = models.CharField(max_length=100)
+    messages = models.TextField()
+    created_date = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
 

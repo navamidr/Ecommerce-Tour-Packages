@@ -40,13 +40,59 @@ class BookingCreate(APIView):
     def post(self,request):
         serializer = BookingSerializer(data=request.data)
         if serializer.is_valid():
-            booking = serializer.save(user=request.user)
-            send_mail(
-                'New Booking Created',
-                f'Booking Details: {booking.package.name}, {booking.number_of_people} people.',
-                'admin@gmail.com',
-                ['admin@gmail.com']
-            )
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            validated_data = serializer.validated_data
+            package = validated_data['package'].id
+            num_people = validated_data['number_of_people']
+            travel_date = validated_data['travel_date']
+
+            try:
+                package = Packages.objects.get(id=package)
+
+                if not package.is_approved:
+                    return Response({"error": "Selected package is not approved."}, status=status.HTTP_400_BAD_REQUEST)
+            
+                booking = BookingTour.objects.create(
+                    user=request.user,  
+                    package=package,    
+                    number_of_people=num_people,
+                    travel_date=travel_date
+                )
+                subject = f"New Booking: {package.name}"
+                message = (
+                    f"A new booking has been made by {request.user.username}.\n\n"
+                    f"Details:\n"
+                    f"Package: {package.name}\n"
+                    f"Number of People: {num_people}\n"
+                    f"Travel Dates: {travel_date}\n"
+                )
+                admin_email = ["admin_email@example.com"]
+                send_mail(subject, message, admin_email)
+
+            
+                user_subject = "Booking Confirmation"
+                user_message = (
+                    f"Thank you for booking {package.name}.\n\n"
+                    f"Booking Details:\n"
+                    f"Number of People: {num_people}\n"
+                    f"Travel Dates: {travel_date}\n"
+                )
+                send_mail(user_subject, user_message, [request.user.email])
+
+                return Response({
+                    "message": "Booking created successfully.",
+                    "booking_id": booking.id,
+                    "package_name": package.name,
+                    "travel_date": booking.travel_date,
+                    "number_of_people": booking.number_of_people,
+                }, status=status.HTTP_201_CREATED)
+            
+            except Packages.DoesNotExist:
+                return Response({"error": "Package not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
 

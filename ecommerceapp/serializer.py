@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Packages,BookingTour
+from .models import Packages,BookingTour,Payment,ContactQuery
 
 
 User = get_user_model()
@@ -31,4 +31,13 @@ class PackageSerializer(serializers.ModelSerializer):
 class BookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = BookingTour
+        fields = '__all__'
+class PaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Payment
+        fields = '__all__'
+
+class ContactQuerySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContactQuery
         fields = '__all__'
