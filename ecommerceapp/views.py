@@ -1,8 +1,9 @@
 from rest_framework.generics import CreateAPIView,ListCreateAPIView,RetrieveUpdateDestroyAPIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializer import UserRegistrationSerializer,PackageSerializer,BookingSerializer
+from .serializer import UserRegistrationSerializer,PackageSerializer,BookingSerializer,PackageImageSerializer
 from rest_framework.permissions import AllowAny,IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from .models import Packages,BookingTour
 from rest_framework.views import APIView
 from django.core.mail import send_mail
@@ -18,21 +19,47 @@ class UserRegistrationView(CreateAPIView):
             return Response({"message": "User registered successfully."}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+
+# agent image uploaded
+    
+class PackageImageView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classe = [IsAuthenticated]
+
+    def post(self,request):
+        if not request.user.is_agent:
+            return Response({'error': 'Not an agent'}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = PackageImageSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save() 
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+#user package view
+
 class PackagesListView(APIView):
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         package = Packages.objects.filter(is_approved=True)
         serializer = PackageSerializer(package, many=True)
         return Response(serializer.data)
+    
+# agent package creation and list ..
 
 class PackageListCreateView(ListCreateAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classe = [IsAuthenticated]
     queryset = Packages.objects.all()
     serializer_class = PackageSerializer
 
 class PackageRetrieveUpdateDestroyView(RetrieveUpdateDestroyAPIView):
     queryset = Packages.objects.all()
     serializer_class = PackageSerializer
+
 
 
 
