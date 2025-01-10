@@ -13,17 +13,9 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         fields = ['username', 'password', 'email', 'contact', 'address','is_agent']
 
     def create(self, validated_data):
-        # user = User.objects.create_user(
-        #     username=validated_data['username'],
-        #     password=validated_data['password'],
-        #     email=validated_data['email'],
-        #     contact=validated_data.get('contact', ''),
-        #     address=validated_data.get('address', ''),
-        #     is_agent=validated_data.get('is_agent',),
-        # )
         user = User.objects.create_user(**validated_data)
         return user
-        r
+        
     
 
 class PackageSerializer(serializers.ModelSerializer):
