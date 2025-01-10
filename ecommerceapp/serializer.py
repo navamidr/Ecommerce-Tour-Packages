@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Packages,BookingTour,Payment,ContactQuery
+from .models import Packages,BookingTour,Payment,ContactQuery,PackageImage
 
 
 User = get_user_model()
@@ -10,21 +10,16 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'password', 'email', 'contact', 'address']
+        fields = ['username', 'password', 'email', 'contact', 'address','is_agent']
 
     def create(self, validated_data):
-        user = User.objects.create_user(
-            username=validated_data['username'],
-            password=validated_data['password'],
-            email=validated_data['email'],
-            contact=validated_data.get('contact', ''),
-            address=validated_data.get('address', ''),
-        )
+        user = User.objects.create_user(**validated_data)
         return user
+        
     
 
 class PackageSerializer(serializers.ModelSerializer):
-    class Mata:
+    class Meta:
         model = Packages
         fields = '__all__'
 
@@ -36,6 +31,11 @@ class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = '__all__'
+
+class PackageImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PackageImage
+        fields = ['id', 'tour_package', 'image', 'description']
 
 class ContactQuerySerializer(serializers.ModelSerializer):
     class Meta:

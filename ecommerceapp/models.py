@@ -10,6 +10,7 @@ class CustomUser(AbstractUser):
             message="Phone number must be entered in the format: '+999999999'. Up to 15 digits allowed.",  )
         ],)
     address = models.TextField(null=True,blank=True)
+    is_agent = models.BooleanField(default=False)
     
     def __str__(self):
         return self.username
@@ -45,8 +46,19 @@ class Payment(models.Model):
     def __str__(self):
         return f"Payment for Booking {self.booking.id} - {self.status}"
     
+
+class PackageImage(models.Model):
+    tour_package = models.ForeignKey(Packages, related_name="images", on_delete=models.CASCADE)
+    image = models.ImageField(upload_to='tour_packages/')
+    description = models.CharField(max_length=255, null=True, blank=True)
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"Image for {self.tour_package.name} - {self.id}"
+    
+    
 class ContactQuery(models.Model):
-    name = models.CharField(max_length=100)
+    name = models.ForeignKey(CustomUser,on_delete=models.CASCADE)
     email = models.EmailField(unique=True)
     contact = models.CharField(max_length=100)
     messages = models.TextField()
