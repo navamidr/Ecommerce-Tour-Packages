@@ -4,10 +4,6 @@ from django.contrib.auth.admin import UserAdmin
 from .models import CustomUser,Packages,BookingTour,Payment
 
 
-# admin.site.register(Packages)
-# admin.site.register(BookingTour)
-# admin.site.register(Payment)
-# admin.site.register(ContactQuery)
 
 
 

@@ -58,7 +58,7 @@ class PackageImage(models.Model):
     
     
 class ContactQuery(models.Model):
-    name = models.ForeignKey(CustomUser,on_delete=models.CASCADE)
+    name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
     contact = models.CharField(max_length=100)
     messages = models.TextField()

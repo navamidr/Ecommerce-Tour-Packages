@@ -15,8 +15,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = User.objects.create_user(**validated_data)
         return user
-        
-    
 
 class PackageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -26,7 +24,18 @@ class PackageSerializer(serializers.ModelSerializer):
 class BookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = BookingTour
-        fields = '__all__'
+        fields = ['id', 'user', ' package', 'number_of_people', 'travel_date', 'book_date']
+
+    def validate_package(self,package):
+        if not package.is_approved:
+            raise serializers.ValidationError("Selected package is not approved.")
+        return package
+    
+    def create(self, validated_data):
+        user = self.context['request'].user  # Get the current authenticated user
+        return BookingTour.objects.create(user=user, **validated_data)
+
+
 class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
@@ -40,4 +49,4 @@ class PackageImageSerializer(serializers.ModelSerializer):
 class ContactQuerySerializer(serializers.ModelSerializer):
     class Meta:
         model = ContactQuery
-        fields = '__all__'
+        fields = ['name', 'email', 'contact', 'messages']
