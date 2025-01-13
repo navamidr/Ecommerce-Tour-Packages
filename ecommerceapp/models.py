@@ -14,6 +14,7 @@ class CustomUser(AbstractUser):
     
     def __str__(self):
         return self.username
+    
 
 class Packages(models.Model):
     name =  models.CharField(max_length=100)
@@ -27,6 +28,7 @@ class Packages(models.Model):
     def __str__(self):
         return self.name
     
+    
 class BookingTour(models.Model):
     user = models.ForeignKey(CustomUser,on_delete=models.CASCADE)
     package =  models.ForeignKey(Packages,on_delete=models.CASCADE)
@@ -36,6 +38,7 @@ class BookingTour(models.Model):
 
     def __str__(self):
         return f"Booking by {self.user.email} for {self.package.name}"
+    
     
 class Payment(models.Model):
     booking = models.ForeignKey(BookingTour,on_delete=models.CASCADE)
