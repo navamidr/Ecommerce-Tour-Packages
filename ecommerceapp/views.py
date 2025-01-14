@@ -4,7 +4,7 @@ from rest_framework import status
 from .serializer import UserRegistrationSerializer,PackageSerializer,BookingSerializer,PackageImageSerializer,ContactQuerySerializer
 from rest_framework.permissions import AllowAny,IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from .models import Packages,BookingTour,PackageImage
+from .models import Packages,BookingTour,PackageImage,CustomUser
 from rest_framework.views import APIView
 from .utils import notify_admin,notify_user
 from django.core.mail import send_mail
@@ -20,6 +20,56 @@ class UserRegistrationView(CreateAPIView):
             serializer.save()
             return Response({"message": "User registered successfully."}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+#user package view
+
+class PackagesListView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if self.request.user.role != CustomUser.Roles.USER:
+            return Response({"error": "Only user can access."}, status=status.HTTP_403_FORBIDDEN)
+        package = Packages.objects.filter(is_approved=True)
+        serializer = PackageSerializer(package, many=True)
+        return Response(serializer.data)
+    
+# agent package creation and list ..
+
+class PackageCreateView(CreateAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classe = [IsAuthenticated]
+    serializer_class = PackageSerializer 
+
+    def perform_create(self, serializer):
+        print(f"User Role: {self.request.user.role}")
+        if self.request.user.role != CustomUser.Roles.AGENT:
+            print("User is not an agent, cannot upload package.")
+            return Response({"error": "Only agents can upload packages."}, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer.save(owner=self.request.user)
+        return Response(serializer.data,status=status.HTTP_201_CREATED)
+    
+
+class PackageRetrieveUpdateDestroyView(RetrieveUpdateDestroyAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classe = [IsAuthenticated]
+    queryset = Packages.objects.all()
+    serializer_class = PackageSerializer
+
+    def perform_update(self, serializer):
+        if self.request.user.role != CustomUser.Roles.AGENT:
+            return Response({'error': 'Only agents can access packages.'}, status=status.HTTP_403_FORBIDDEN)
+        serializer.save()
+        return Response(serializer.data,status=status.HTTP_201_CREATED)
+    
+    def perform_destroy(self, instance):
+        if self.request.user.role != CustomUser.Roles.AGENT:
+            return Response({'error': 'Only agents can delete.'}, status=status.HTTP_403_FORBIDDEN)
+        instance.delete()
+        return Response({"message":"Deleted Package"})
+    
 
 # agent image uploaded
     
@@ -47,42 +97,6 @@ class PackageImageView(APIView):
             return Response({'message': 'Package image deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
         except PackageImage.DoesNotExist:
             return Response({'error': 'Package image not found'}, status=status.HTTP_404_NOT_FOUND)
-
-
-#user package view
-
-class PackagesListView(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        package = Packages.objects.filter(is_approved=True)
-        serializer = PackageSerializer(package, many=True)
-        return Response(serializer.data)
-    
-# agent package creation and list ..
-
-class PackageCreateView(CreateAPIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classe = [IsAuthenticated]
-
-    def perform_create(self, serializer):
-        serializer.save()
-        return Response(serializer.data,status=status.HTTP_201_CREATED)
-    
-
-class PackageRetrieveUpdateDestroyView(RetrieveUpdateDestroyAPIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classe = [IsAuthenticated]
-    queryset = Packages.objects.all()
-    serializer_class = PackageSerializer
-
-    def perform_update(self, serializer):
-        serializer.save()
-        return Response(serializer.data,status=status.HTTP_201_CREATED)
-    def perform_destroy(self, instance):
-        instance.delete()
-        return Response({"message":"Deleted Package"})
     
 
 class BookingCreate(APIView):

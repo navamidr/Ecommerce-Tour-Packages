@@ -5,18 +5,24 @@ from django.contrib.auth.models import AbstractUser
 
 
 class CustomUser(AbstractUser):
+    class Roles(models.IntegerChoices):
+        AGENT = 1, "Agent"
+        USER = 2, "User"
+        ADMIN= 3,"Admin"
+
     email = models.EmailField(unique=True)
     contact = models.CharField(max_length=15,null=True,blank=True,validators=[RegexValidator( regex=r'^\+?1?\d{9,15}$', 
             message="Phone number must be entered in the format: '+999999999'. Up to 15 digits allowed.",  )
         ],)
-    address = models.TextField(null=True,blank=True)
-    is_agent = models.BooleanField(default=False)
+    address = models.TextField(null=True,blank=True) 
+    role = models.IntegerField(choices=Roles.choices, default=Roles.USER) 
     
     def __str__(self):
-        return self.username
+        return f"{self.username} ({self.get_role_display()})"
     
 
 class Packages(models.Model):
+    owner =  models.ForeignKey(CustomUser, related_name="packages", on_delete=models.CASCADE)
     name =  models.CharField(max_length=100)
     description = models.TextField()
     price = models.DecimalField(max_digits=10,decimal_places=2)
@@ -33,6 +39,8 @@ class BookingTour(models.Model):
     user = models.ForeignKey(CustomUser,on_delete=models.CASCADE)
     package =  models.ForeignKey(Packages,on_delete=models.CASCADE)
     number_of_people = models.PositiveIntegerField()
+    amount = models.DecimalField(max_digits=10,decimal_places=2)
+    status = models.CharField(max_length=50,choices=[('card','Card'),('gpay','Gpay')])
     travel_date = models.DateField()
     book_date = models.DateTimeField(auto_now_add=True)
 
@@ -44,6 +52,7 @@ class Payment(models.Model):
     booking = models.ForeignKey(BookingTour,on_delete=models.CASCADE)
     status = models.CharField(max_length=50,choices=[('pending','Pending'),('completed','Completed'),('failed','Failed')])
     amount = models.DecimalField(max_digits=10,decimal_places=2)
+    transaction_id = models.CharField(max_length=255, unique=True)
     created_date =models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

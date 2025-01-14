@@ -8,10 +8,16 @@ User = get_user_model()
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
+    role = serializers.ChoiceField(choices=User.Roles.choices)  
 
     class Meta:
         model = User
-        fields = ['username', 'password', 'email', 'contact', 'address','is_agent']
+        fields = ['username', 'password', 'email', 'contact', 'address','role']
+
+    def validate_role(self, value):
+        if value not in [role[0] for role in User.Roles.choices]:
+            raise serializers.ValidationError("Invalid role selected.")
+        return value
 
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
@@ -26,13 +32,20 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 class PackageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Packages
-        fields = '__all__'
+        fields = ['id', 'name', 'description', 'price', 'start_date', 'end_date', 'destination', 'is_approved']
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Amount must be a positive value.")
+        return value
+    
+    
+    
 
 
 class BookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = BookingTour
-        fields = ['id', 'user', ' package', 'number_of_people', 'travel_date', 'book_date']
+        fields = ['id', 'user', ' package', 'number_of_people', 'travel_date', 'book_date','status']
 
     def validate_package(self,package):
         if not package.is_approved:
@@ -63,7 +76,7 @@ class PaymentSerializer(serializers.ModelSerializer):
 class PackageImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = PackageImage
-        fields = ['id', 'tour_package', 'image', 'description']
+        fields = ['tour_package', 'image', 'description', 'user']
         
 
 class ContactQuerySerializer(serializers.ModelSerializer):

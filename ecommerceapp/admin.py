@@ -4,17 +4,14 @@ from django.contrib.auth.admin import UserAdmin
 from .models import CustomUser,Packages,BookingTour,Payment
 
 
-
-
-
 class CustomUserAdmin(UserAdmin):
     model = CustomUser
-    list_display = ['username', 'email', 'is_agent', 'contact', 'address']
+    list_display = ['username', 'email', 'contact', 'address','role']
     fieldsets = UserAdmin.fieldsets + (
-        (None, {'fields': ('is_agent', 'contact', 'address')}),
+        (None, {'fields': ('role', 'contact', 'address')}),
     )
     add_fieldsets = UserAdmin.add_fieldsets + (
-        (None, {'fields': ('is_agent', 'contact', 'address')}),
+        (None, {'fields': ('role', 'contact', 'address')}),
     )
 
 admin.site.register(CustomUser, CustomUserAdmin)
@@ -22,7 +19,7 @@ admin.site.register(CustomUser, CustomUserAdmin)
 
 
 class PackageAdmin(admin.ModelAdmin):
-    list_display = ['name', 'destination', 'price', 'is_approved']
+    list_display = ['owner','name', 'destination','price', 'is_approved']
     list_filter = ['is_approved']
 
 admin.site.register(Packages,PackageAdmin)
