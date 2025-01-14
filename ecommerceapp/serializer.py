@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import Packages,BookingTour,Payment,ContactQuery,PackageImage
+from datetime import date
 
 
 User = get_user_model()
@@ -12,14 +13,21 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         model = User
         fields = ['username', 'password', 'email', 'contact', 'address','is_agent']
 
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Email is already in use.")
+        return value
+
     def create(self, validated_data):
         user = User.objects.create_user(**validated_data)
         return user
+    
 
 class PackageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Packages
         fields = '__all__'
+
 
 class BookingSerializer(serializers.ModelSerializer):
     class Meta:
@@ -31,8 +39,18 @@ class BookingSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Selected package is not approved.")
         return package
     
+    def validate_travel_date(self,travel_date):
+        if travel_date < date.today():
+            raise serializers.ValidationError("Travel date must be in the future.")
+        return travel_date
+
+    def validate_number_of_people(self,num_people):
+        if num_people < 1:
+            raise serializers.ValidationError("Number of people must be at least 1.")
+        return num_people
+
     def create(self, validated_data):
-        user = self.context['request'].user  # Get the current authenticated user
+        user = self.context['request'].user  
         return BookingTour.objects.create(user=user, **validated_data)
 
 
@@ -41,10 +59,12 @@ class PaymentSerializer(serializers.ModelSerializer):
         model = Payment
         fields = '__all__'
 
+
 class PackageImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = PackageImage
         fields = ['id', 'tour_package', 'image', 'description']
+        
 
 class ContactQuerySerializer(serializers.ModelSerializer):
     class Meta:

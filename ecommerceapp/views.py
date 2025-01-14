@@ -4,9 +4,11 @@ from rest_framework import status
 from .serializer import UserRegistrationSerializer,PackageSerializer,BookingSerializer,PackageImageSerializer,ContactQuerySerializer
 from rest_framework.permissions import AllowAny,IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from .models import Packages,BookingTour
+from .models import Packages,BookingTour,PackageImage
 from rest_framework.views import APIView
+from .utils import notify_admin,notify_user
 from django.core.mail import send_mail
+from rest_framework.exceptions import ValidationError
 
 class UserRegistrationView(CreateAPIView):
     serializer_class = UserRegistrationSerializer
@@ -34,6 +36,18 @@ class PackageImageView(APIView):
             serializer.save() 
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request,id):
+        try:
+            image = PackageImage.objects.get(id=id, user=request.user)
+            if not request.user.is_agent:
+                return Response({'error': 'Not an agent'}, status=status.HTTP_403_FORBIDDEN)
+
+            image.delete()
+            return Response({'message': 'Package image deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
+        except PackageImage.DoesNotExist:
+            return Response({'error': 'Package image not found'}, status=status.HTTP_404_NOT_FOUND)
+
 
 #user package view
 
@@ -55,12 +69,14 @@ class PackageCreateView(CreateAPIView):
     def perform_create(self, serializer):
         serializer.save()
         return Response(serializer.data,status=status.HTTP_201_CREATED)
+    
 
 class PackageRetrieveUpdateDestroyView(RetrieveUpdateDestroyAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classe = [IsAuthenticated]
     queryset = Packages.objects.all()
     serializer_class = PackageSerializer
+
     def perform_update(self, serializer):
         serializer.save()
         return Response(serializer.data,status=status.HTTP_201_CREATED)
@@ -70,39 +86,48 @@ class PackageRetrieveUpdateDestroyView(RetrieveUpdateDestroyAPIView):
     
 
 class BookingCreate(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classe = [IsAuthenticated]
+
     def post(self,request):
-        serializer = BookingSerializer(data=request.data, context={'request': request})
-        if serializer.is_valid(raise_exception=True):
-            booking = serializer.save()
-            package = booking.package
-            subject = f"New Booking: {package.name}"
-            admin_message = (
-                f"A new booking has been made by {request.user.username}.\n\n"
-                f"Details:\n"
-                f"Package: {package.name}\n"
-                f"Number of People: {booking.number_of_people}\n"
-                f"Travel Dates: {booking.travel_date}\n"
-            )
-            admin_email = ["admin_email@example.com"]
-            send_mail(subject, admin_message, admin_email)
-            user_message = (
-                f"Thank you for booking {package.name}.\n\n"
-                f"Booking Details:\n"
-                f"Number of People: {booking.number_of_people}\n"
-                f"Travel Dates: {booking.travel_date}\n"
-            )
-            send_mail("Booking Confirmation", user_message, [request.user.email])
+        try:
+            serializer = BookingSerializer(data=request.data, context={'request': request})
+            if serializer.is_valid(raise_exception=True):
+                booking = serializer.save()
+                package = booking.package
 
-            return Response({
-                "message": "Booking created successfully.",
-                "booking_id": booking.id,
-                "package_name": package.name,
-                "travel_date": booking.travel_date,
-                "number_of_people": booking.number_of_people,
-            }, status=status.HTTP_201_CREATED)
+                details = {
+                    "title":package.name,
+                    "number_of_people":package.number_of_people,
+                    "travel_date":package.travel_date,
+                 }
+                
+                notify_admin("Booking",details,user_email=request.user.email)
+                notify_user("Booking",details,user_email=request.user.email)
+
+                return Response({
+                    "message": "Booking created successfully.",
+                    "booking_id": booking.id,
+                    "package_name": package.name,
+                    "travel_date": booking.travel_date,
+                    "number_of_people": booking.number_of_people,
+                }, status=status.HTTP_201_CREATED)
+        except ValidationError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+    def delete(self, request, id):
+        try:
+            booking = BookingTour.objects.get(id=id, user=request.user)
+            if request.user != booking.user:
+                return Response({'error': 'You are not authorized to delete this booking'}, status=status.HTTP_403_FORBIDDEN)
+
+            booking.delete()
+            return Response({'message': 'Booking deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
+        except BookingTour.DoesNotExist:
+            return Response({'error': 'Booking not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
-class ContcatQueryView(APIView):
+class ContactQueryView(APIView):
     def post(self,request):
         serializer = ContactQuerySerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
