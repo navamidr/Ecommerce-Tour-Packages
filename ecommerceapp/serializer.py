@@ -2,6 +2,9 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import Packages,BookingTour,Payment,ContactQuery,PackageImage
 from datetime import date
+from django.core.exceptions import ValidationError
+import re
+
 
 
 User = get_user_model()
@@ -9,6 +12,7 @@ User = get_user_model()
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
     role = serializers.ChoiceField(choices=User.Roles.choices)  
+    email = serializers.CharField()
 
     class Meta:
         model = User
@@ -20,8 +24,9 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return value
 
     def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("Email is already in use.")
+        email_regex = r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)"
+        if not re.match(email_regex, value):
+            raise ValidationError("Enter a valid email address.")
         return value
 
     def create(self, validated_data):
@@ -39,8 +44,6 @@ class PackageSerializer(serializers.ModelSerializer):
         return value
     
     
-    
-
 
 class BookingSerializer(serializers.ModelSerializer):
     class Meta:
@@ -76,7 +79,12 @@ class PaymentSerializer(serializers.ModelSerializer):
 class PackageImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = PackageImage
-        fields = ['tour_package', 'image', 'description', 'user']
+        fields = ['id', 'tour_package', 'image', 'description']
+
+    def validate_tour_package(self, value):
+        if not value:
+            raise serializers.ValidationError("Tour package is required.")
+        return value
         
 
 class ContactQuerySerializer(serializers.ModelSerializer):

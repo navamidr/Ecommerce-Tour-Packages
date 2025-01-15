@@ -45,7 +45,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'ecommerceapp.apps.EcommerceappConfig', 
+    # 'ecommerceapp.apps.EcommerceappConfig', 
+    'ecommerceapp',
     
     'rest_framework',
 ]
@@ -96,7 +97,7 @@ WSGI_APPLICATION = 'ecommerceproject.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME':'tour_db',
+        'NAME':'tourdb',
         'HOST':'localhost',
         'PORT':'5432',
         'USER':'postgres',

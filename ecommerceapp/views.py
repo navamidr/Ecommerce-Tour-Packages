@@ -35,22 +35,23 @@ class PackagesListView(APIView):
         serializer = PackageSerializer(package, many=True)
         return Response(serializer.data)
     
-# agent package creation and list ..
+# # agent package creation and list ..
 
-class PackageCreateView(CreateAPIView):
+class PackageCreateView(APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classe = [IsAuthenticated]
-    serializer_class = PackageSerializer 
+    permission_classes = [IsAuthenticated]
 
-    def perform_create(self, serializer):
-        print(f"User Role: {self.request.user.role}")
-        if self.request.user.role != CustomUser.Roles.AGENT:
-            print("User is not an agent, cannot upload package.")
+    def post(self, request,):
+        user = request.user
+        if user.role != CustomUser.Roles.AGENT:
             return Response({"error": "Only agents can upload packages."}, status=status.HTTP_403_FORBIDDEN)
-        
-        serializer.save(owner=self.request.user)
-        return Response(serializer.data,status=status.HTTP_201_CREATED)
-    
+        serializer = PackageSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(owner=user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class PackageRetrieveUpdateDestroyView(RetrieveUpdateDestroyAPIView):
     authentication_classes = [JWTAuthentication]
@@ -61,14 +62,23 @@ class PackageRetrieveUpdateDestroyView(RetrieveUpdateDestroyAPIView):
     def perform_update(self, serializer):
         if self.request.user.role != CustomUser.Roles.AGENT:
             return Response({'error': 'Only agents can access packages.'}, status=status.HTTP_403_FORBIDDEN)
+        
+        instance = self.get_object()
+        if instance.owner != self.request.user:
+            return Response({'error':'You can only update packages you own.'},status=status.HTTP_403_FORBIDDEN)
+        
         serializer.save()
-        return Response(serializer.data,status=status.HTTP_201_CREATED)
+        return Response(serializer.data,status=status.HTTP_200_OK)
     
     def perform_destroy(self, instance):
         if self.request.user.role != CustomUser.Roles.AGENT:
             return Response({'error': 'Only agents can delete.'}, status=status.HTTP_403_FORBIDDEN)
+        
+        if instance.owner != self.request.user:
+            return Response({'error':'You can only delete packages you own.'},status=status.HTTP_403_FORBIDDEN)
+        
         instance.delete()
-        return Response({"message":"Deleted Package"})
+        return Response({"message":"Package deleted successfully."},status=status.HTTP_200_OK)
     
 
 # agent image uploaded
@@ -77,22 +87,33 @@ class PackageImageView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classe = [IsAuthenticated]
 
-    def post(self,request):
-        if not request.user.is_agent:
-            return Response({'error': 'Not an agent'}, status=status.HTTP_403_FORBIDDEN)
+    def post(self, request):
+        user = request.user
+        if user.role != CustomUser.Roles.AGENT:
+            return Response({'error': 'Only agents can upload images.'}, status=status.HTTP_403_FORBIDDEN)
+        package_id = request.data.get('tour_package')
+        try:
+            package = Packages.objects.get(id=package_id, owner=user)
+        except Packages.DoesNotExist:
+            return Response({'error': 'Package not found or you are not the owner.'}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = PackageImageSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save() 
+            serializer.save(user=user)  
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     def delete(self, request,id):
+        user = request.user
+        if user.role != CustomUser.Roles.AGENT:
+            return Response({'error':'only agent can access.'},status=status.HTTP_403_FORBIDDEN)
+        package_id =request.data.get('tour_package')
         try:
-            image = PackageImage.objects.get(id=id, user=request.user)
-            if not request.user.is_agent:
-                return Response({'error': 'Not an agent'}, status=status.HTTP_403_FORBIDDEN)
-
+            package = Packages.objects.get(id=package_id,owner=user)
+        except Packages.DoesNotExist:
+            return Response({'error':'Package not found or you are not the owner.'},status=status.HTTP_403_FORBIDDEN)
+        try:
+            image = PackageImage.objects.get(id=id,tour_package=package)
             image.delete()
             return Response({'message': 'Package image deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
         except PackageImage.DoesNotExist:
