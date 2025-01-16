@@ -37,7 +37,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 class PackageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Packages
-        fields = ['id', 'name', 'description', 'price', 'start_date', 'end_date', 'destination', 'is_approved']
+        fields = ['id', 'name', 'description', 'amount', 'start_date', 'end_date', 'destination', 'is_approved']
     def validate_amount(self, value):
         if value <= 0:
             raise serializers.ValidationError("Amount must be a positive value.")

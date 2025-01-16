@@ -1,5 +1,8 @@
 from django.core.mail import send_mail
 from django.conf import settings
+from rest_framework import status
+from .models import CustomUser
+from rest_framework.response import Response
 
 def send_email(subject, message, recipient_list, from_email=None):
     if from_email is None:
@@ -38,3 +41,14 @@ def notify_user(notification_type,details,user_email):
 
     send_email(subject,message,[user_email])
 
+
+
+def is_agent(user):
+    if user.role != CustomUser.Roles.AGENT:
+        return Response({"error": "Only agents are allowed to perform this action."}, status=status.HTTP_403_FORBIDDEN)
+    return None
+
+def is_owner(user, instance):
+    if instance.owner != user:
+        return Response({"error": "You can only perform this action on your own packages."}, status=status.HTTP_403_FORBIDDEN)
+    return None

@@ -1,6 +1,6 @@
 from django.urls import path
 from rest_framework_simplejwt.views import (TokenObtainPairView,TokenRefreshView,)
-from .views import UserRegistrationView,PackageImageView,PackagesListView,PackageCreateView,PackageRetrieveUpdateDestroyView
+from .views import UserRegistrationView,PackageImageView,PackagesListView,PackageCreateView,PackageUpdateView
 
 urlpatterns = [
     path('register/', UserRegistrationView.as_view(), name='register'),
@@ -9,6 +9,7 @@ urlpatterns = [
     path('packageslist/',PackagesListView.as_view(),name= 'packages-list'),
     path('packages/create/',PackageCreateView.as_view(),name='package-create'),
     path('packageimage/',PackageImageView.as_view(),name='package-image'),
-    path('packages/<int:pk>/',PackageRetrieveUpdateDestroyView.as_view(),name = 'package-retrieve-update-destroy'),
+    path('packages/',PackageUpdateView.as_view(),name = 'package-retrieve-update-destroy'),
+    path('packages/<int:pk>/',PackageUpdateView.as_view(),name = 'package-retrieve-update-destroy'),
 
 ]
