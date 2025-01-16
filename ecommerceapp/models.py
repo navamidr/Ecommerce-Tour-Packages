@@ -25,9 +25,9 @@ class Packages(models.Model):
     owner =  models.ForeignKey(CustomUser, related_name="packages", on_delete=models.CASCADE)
     name =  models.CharField(max_length=100)
     description = models.TextField()
-    price = models.DecimalField(max_digits=10,decimal_places=2)
     start_date = models.DateField()
     end_date = models.DateField()
+    amount = models.IntegerField()
     destination = models.CharField(max_length=100)
     is_approved = models.BooleanField(default=False)
     
@@ -39,7 +39,7 @@ class BookingTour(models.Model):
     user = models.ForeignKey(CustomUser,on_delete=models.CASCADE)
     package =  models.ForeignKey(Packages,on_delete=models.CASCADE)
     number_of_people = models.PositiveIntegerField()
-    amount = models.DecimalField(max_digits=10,decimal_places=2)
+    amount = models.IntegerField()
     status = models.CharField(max_length=50,choices=[('card','Card'),('gpay','Gpay')])
     travel_date = models.DateField()
     book_date = models.DateTimeField(auto_now_add=True)
@@ -51,8 +51,9 @@ class BookingTour(models.Model):
 class Payment(models.Model):
     booking = models.ForeignKey(BookingTour,on_delete=models.CASCADE)
     status = models.CharField(max_length=50,choices=[('pending','Pending'),('completed','Completed'),('failed','Failed')])
-    amount = models.DecimalField(max_digits=10,decimal_places=2)
-    transaction_id = models.CharField(max_length=255, unique=True)
+    amount = models.IntegerField()
+    # transaction_id = models.CharField(max_length=255, unique=True)
+    transaction_id = models.CharField(max_length=150,unique=True,default='default_value')
     created_date =models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

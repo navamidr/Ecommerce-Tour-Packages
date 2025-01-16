@@ -8,3 +8,6 @@ env
 .idea/
 **__pycache__
 .env
+media/
+/media/
+**/__pycache__/

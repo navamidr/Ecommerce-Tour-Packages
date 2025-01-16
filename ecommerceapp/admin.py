@@ -19,7 +19,7 @@ admin.site.register(CustomUser, CustomUserAdmin)
 
 
 class PackageAdmin(admin.ModelAdmin):
-    list_display = ['owner','name', 'destination','price', 'is_approved']
+    list_display = ['owner','name', 'destination','is_approved']
     list_filter = ['is_approved']
 
 admin.site.register(Packages,PackageAdmin)
