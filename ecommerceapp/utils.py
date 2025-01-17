@@ -1,5 +1,8 @@
 from django.core.mail import send_mail
 from django.conf import settings
+from rest_framework import status
+from .models import CustomUser
+from rest_framework.response import Response
 
 def send_email(subject, message, recipient_list, from_email=None):
     if from_email is None:
@@ -37,4 +40,6 @@ def notify_user(notification_type,details,user_email):
         message += f"{key.capitalize()}: {value}\n"
 
     send_email(subject,message,[user_email])
+
+
 
