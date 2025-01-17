@@ -43,12 +43,3 @@ def notify_user(notification_type,details,user_email):
 
 
 
-def is_agent(user):
-    if user.role != CustomUser.Roles.AGENT:
-        return Response({"error": "Only agents are allowed to perform this action."}, status=status.HTTP_403_FORBIDDEN)
-    return None
-
-def is_owner(user, instance):
-    if instance.owner != user:
-        return Response({"error": "You can only perform this action on your own packages."}, status=status.HTTP_403_FORBIDDEN)
-    return None

@@ -6,9 +6,10 @@ from rest_framework.permissions import AllowAny,IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from .models import Packages,BookingTour,PackageImage,CustomUser
 from rest_framework.views import APIView
-from .utils import notify_admin,notify_user,is_agent,is_owner
+from .utils import notify_admin,notify_user
 from django.core.mail import send_mail
 from rest_framework.exceptions import ValidationError
+from .permissions import IsAgent, IsOwner,IsUser
 
 class UserRegistrationView(CreateAPIView):
     serializer_class = UserRegistrationSerializer
@@ -26,84 +27,60 @@ class UserRegistrationView(CreateAPIView):
 
 class PackagesListView(APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,IsUser]
 
     def get(self, request):
-        if self.request.user.role != CustomUser.Roles.USER:
-            return Response({"error": "Only user can access."}, status=status.HTTP_403_FORBIDDEN)
-        package = Packages.objects.filter(is_approved=True)
-        serializer = PackageSerializer(package, many=True)
-        return Response(serializer.data)
+        packages = Packages.objects.filter(is_approved=True)
+        serializer = PackageSerializer(packages, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
-# # agent package creation and list ..
+# agent package creation 
 
 class PackageCreateView(APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,IsAgent]
 
     def post(self, request,):
+        
         user = request.user
-        agent_check = is_agent(user)
-        if agent_check:
-            return agent_check
-
         serializer = PackageSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save(owner=user)
+            serializer.save(owner=user)  
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 #agent update packages ...
 
 class PackageUpdateView(APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,IsAgent]
 
     def get(self, request):
         user = request.user
-        agent_check = is_agent(user)
-        if agent_check:
-            return agent_check
         packages = Packages.objects.filter(owner=user)
-        serializer = PackageSerializer(packages, many=True)  
+        serializer = PackageSerializer(packages, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
-    def patch(self, request, pk):
-        return self.update(request, pk, partial=True)
-
     def put(self, request, pk):
-        return self.update(request, pk, partial=False)
-
-    def update(self, request, pk, partial):
-        user = request.user
-        agent_check = is_agent(user)
-        if agent_check:
-            return agent_check
         try:
             package = Packages.objects.get(pk=pk)
         except Packages.DoesNotExist:
             return Response({"error": "Package not found."}, status=status.HTTP_404_NOT_FOUND)
-        owner_check = is_owner(user, package)
-        if owner_check:
-            return owner_check
-        serializer = PackageSerializer(package, data=request.data, partial=partial)
+
+        self.check_object_permissions(request, package)  
+        serializer = PackageSerializer(package, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk):
-        user = request.user
-        agent_check = is_agent(user)
-        if agent_check:
-            return agent_check
         try:
             package = Packages.objects.get(pk=pk)
         except Packages.DoesNotExist:
             return Response({"error": "Package not found."}, status=status.HTTP_404_NOT_FOUND)
-        owner_check = is_owner(user, package)
-        if owner_check:
-            return owner_check
+        self.check_object_permissions(request, package)  
         package.delete()
         return Response({"message": "Package deleted successfully."}, status=status.HTTP_200_OK)
 
@@ -113,44 +90,61 @@ class PackageUpdateView(APIView):
     
 class PackageImageView(APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classe = [IsAuthenticated]
+    permission_classe = [IsAuthenticated,IsAgent,IsOwner]
 
     def post(self, request):
         user = request.user
-
-        agent_check = is_agent(user)
-        if agent_check:
-            return agent_check
         package_id = request.data.get('tour_package')
         try:
-            package = Packages.objects.get(id=package_id, owner=user)
+            package = Packages.objects.get(id=package_id)
+            self.check_object_permissions(request, package)  
         except Packages.DoesNotExist:
-            return Response({'error': 'Package not found or you are not the owner.'}, status=status.HTTP_403_FORBIDDEN)
-
+            return Response({'error': 'Package not found or you are not the owner.'},status=status.HTTP_403_FORBIDDEN)
         serializer = PackageImageSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save(user=user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
+        
     def delete(self, request, id):
         user = request.user
-        agent_check = is_agent(user)
-        if agent_check:
-            return agent_check
         package_id = request.data.get('tour_package')
         try:
-            package = Packages.objects.get(id=package_id, owner=user)
+            package = Packages.objects.get(id=package_id)
+            self.check_object_permissions(request, package)  
         except Packages.DoesNotExist:
-            return Response({'error': 'Package not found or you are not the owner.'}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'error': 'Package not found or you are not the owner.'},status=status.HTTP_403_FORBIDDEN)
         try:
             image = PackageImage.objects.get(id=id, tour_package=package)
             image.delete()
-            return Response({'message': 'Package image deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
+            return Response({'message': 'Package image deleted successfully'},status=status.HTTP_204_NO_CONTENT)
         except PackageImage.DoesNotExist:
-            return Response({'error': 'Package image not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': 'Package image not found'},status=status.HTTP_404_NOT_FOUND)
 
+
+# user image view...
+
+
+class PackageImageListView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsUser]  
+
+    def get(self, request, id):
+        user = request.user
+        package_id = request.data.get('tour_package')
+        try:
+            package = Packages.objects.get(Packages, id=package_id)
+        except Packages.DoesNotExist:
+            return Response({'error': 'Package not found'},status=status.HTTP_403_FORBIDDEN)
+        
+        images = PackageImage.objects.filter(tour_package=package)
+        if not images.exists():
+            return Response({"message": "No images found for this package."},status=status.HTTP_404_NOT_FOUND)
+        serializer = PackageImageSerializer(images, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+# booking 
     
 class BookingCreate(APIView):
     authentication_classes = [JWTAuthentication]
