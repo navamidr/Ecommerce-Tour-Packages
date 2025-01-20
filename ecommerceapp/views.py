@@ -157,8 +157,8 @@ class BookingCreate(APIView):
 
                 details = {
                     "title":package.name,
-                    "number_of_people":package.number_of_people,
-                    "travel_date":package.travel_date,
+                    "number_of_people":booking.number_of_people,
+                    "travel_date":booking.travel_date,
                  }
                 
                 notify_admin("Booking", details,user_email=request.user.email)
@@ -170,6 +170,7 @@ class BookingCreate(APIView):
                     "package_name": package.name,
                     "travel_date": booking.travel_date,
                     "number_of_people": booking.number_of_people,
+                    "amount": booking.amount, 
                 }, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

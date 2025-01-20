@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 # Register your models here.
-from .models import CustomUser,Packages,BookingTour,Payment
+from .models import CustomUser,Packages,BookingTour,Payment,PackageImage,ContactQuery
 
 
 class CustomUserAdmin(UserAdmin):
@@ -21,6 +21,7 @@ admin.site.register(CustomUser, CustomUserAdmin)
 class PackageAdmin(admin.ModelAdmin):
     list_display = ['owner','name', 'destination','is_approved']
     list_filter = ['is_approved']
+    
 
 admin.site.register(Packages,PackageAdmin)
 
@@ -50,3 +51,11 @@ class PaymentAdmin(admin.ModelAdmin):
     readonly_fields = ('created_date',)
     
 admin.site.register(Payment, PaymentAdmin)
+
+class PackageImageAdmin(admin.ModelAdmin):
+    list_display= ('tour_package','image','description','user')
+admin.site.register(PackageImage,PackageImageAdmin)
+
+class ContactAdmin(admin.ModelAdmin):
+    list_display = ('name','email','contact','messages')
+admin.site.register(ContactQuery,ContactAdmin)

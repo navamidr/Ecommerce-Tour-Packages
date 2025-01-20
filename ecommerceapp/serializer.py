@@ -48,7 +48,7 @@ class PackageSerializer(serializers.ModelSerializer):
 class BookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = BookingTour
-        fields = ['id', 'user', ' package', 'number_of_people', 'travel_date', 'book_date','status']
+        fields = ['id', 'package','number_of_people', 'travel_date', 'book_date','status']
 
     def validate_package(self,package):
         if not package.is_approved:
@@ -60,14 +60,27 @@ class BookingSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Travel date must be in the future.")
         return travel_date
 
-    def validate_number_of_people(self,num_people):
-        if num_people < 1:
+    def validate_number_of_people(self,num_of_people):
+        if num_of_people < 1:
             raise serializers.ValidationError("Number of people must be at least 1.")
-        return num_people
+        return num_of_people
 
     def create(self, validated_data):
         user = self.context['request'].user  
-        return BookingTour.objects.create(user=user, **validated_data)
+        package = validated_data['package']
+        number_of_people = validated_data['number_of_people']
+        amount = package.amount * number_of_people
+
+        
+        # return BookingTour.objects.create(user=user, **validated_data)
+        return BookingTour.objects.create(
+            user=user,
+            package=package,
+            number_of_people=number_of_people,
+            travel_date=validated_data['travel_date'],
+            status=validated_data['status'],
+            amount=amount
+        )
 
 
 class PaymentSerializer(serializers.ModelSerializer):
