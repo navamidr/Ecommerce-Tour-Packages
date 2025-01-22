@@ -17,9 +17,9 @@ def send_email(subject, message, recipient_list, from_email=None):
     )
 
 def notify_admin(notification_type,details,user_email):
-    subject = f"new {notification_type}: {details.get('title')}"
+    subject = f"New {notification_type}: {details.get('title')}"
     message =( 
-        f"new {notification_type} \n \n" 
+        f"NEW {notification_type.upper()} \n \n" 
         f"Details:\n"
         )
 
@@ -30,9 +30,9 @@ def notify_admin(notification_type,details,user_email):
     send_email(subject,message,[admin_email],from_email=user_email)
 
 def notify_user(notification_type,details,user_email):
-    subject = f"new {notification_type} confirmation"
+    subject = f"New {notification_type} Confirmation"
     message = (
-        f" thank you for your {notification_type.lower()}.\n\n"
+        f"THANK YOU FOR YOUR {notification_type.upper()}.\n\n"
         f"Details:\n"
     )
     
