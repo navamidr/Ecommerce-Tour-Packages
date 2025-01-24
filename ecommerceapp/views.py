@@ -1,7 +1,7 @@
 from rest_framework.generics import CreateAPIView,ListCreateAPIView,RetrieveUpdateDestroyAPIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializer import UserRegistrationSerializer,PackageSerializer,BookingSerializer,PackageImageSerializer,ContactQuerySerializer
+from .serializer import UserRegistrationSerializer,PackageSerializer,BookingSerializer,PackageImageSerializer,ContactQuerySerializer,PaymentSerializer
 from rest_framework.permissions import AllowAny,IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from .models import Packages,BookingTour,PackageImage,CustomUser
@@ -10,6 +10,10 @@ from .utils import notify_admin,notify_user
 from django.core.mail import send_mail
 from rest_framework.exceptions import ValidationError
 from .permissions import IsAgent, IsOwner,IsUser
+from .serializer import CustomTokenObtainPairSerializer
+from rest_framework_simplejwt.views import TokenObtainPairView
+
+# register view
 
 class UserRegistrationView(CreateAPIView):
     serializer_class = UserRegistrationSerializer
@@ -21,7 +25,11 @@ class UserRegistrationView(CreateAPIView):
             serializer.save()
             return Response({"message": "User registered successfully."}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+# login 
 
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
 
 #user package view
 
@@ -57,7 +65,7 @@ class PackageCreateView(APIView):
 
 class PackageUpdateView(APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated,IsAgent,IsOwner]
+    permission_classes = [IsAuthenticated, IsAgent,IsOwner]
 
     def get(self, request):
         user = request.user
@@ -175,6 +183,19 @@ class BookingCreate(APIView):
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
+    def get(self, request, user_id):
+        try:
+            if user_id: 
+                bookings = BookingTour.objects.filter(user__id=user_id)
+                if not bookings.exists():
+                    return Response({'error': 'No bookings found for this user'}, status=status.HTTP_404_NOT_FOUND)
+                serializer = BookingSerializer(bookings, many=True, context={'request': request})
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            else:
+                return Response({'error': 'User ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     def delete(self, request, id):
         try:
             booking = BookingTour.objects.get(id=id, user=request.user)
@@ -185,9 +206,35 @@ class BookingCreate(APIView):
             return Response({'message': 'Booking deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
         except BookingTour.DoesNotExist:
             return Response({'error': 'Booking not found'}, status=status.HTTP_404_NOT_FOUND)
+ 
+# payment view 
 
+class PaymentView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated,IsUser]
+
+    def post(self,request):
+        serializer = PaymentSerializer(data=request.data)
+        if serializer.is_valid():
+            payment = serializer.save() 
+
+
+
+
+
+
+            return Response({
+                "message": "Payment processed successfully.",
+                "payment_id": payment.id,
+                }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# contactquery view 
 
 class ContactQueryView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
     def post(self,request):
         serializer = ContactQuerySerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):

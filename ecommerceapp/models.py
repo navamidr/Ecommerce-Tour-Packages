@@ -50,18 +50,18 @@ class BookingTour(models.Model):
     
 class Payment(models.Model):
     booking = models.ForeignKey(BookingTour,on_delete=models.CASCADE)
-    status = models.CharField(max_length=50,choices=[('pending','Pending'),('completed','Completed'),('failed','Failed')])
+    status = models.CharField(max_length=50,choices=[('pending','Pending'),('completed','Completed'),('failed','Failed')],default='pending')
     amount = models.IntegerField()
-    # transaction_id = models.CharField(max_length=255, unique=True)
     transaction_id = models.CharField(max_length=150,unique=True,default='default_value')
     created_date =models.DateTimeField(auto_now_add=True)
+    checkout_id = models.CharField(max_length=50,default='stripe',unique=True)
 
     def __str__(self):
         return f"Payment for Booking {self.booking.id} - {self.status}"
     
 
 class PackageImage(models.Model):
-    tour_package = models.ForeignKey(Packages, related_name="images", on_delete=models.CASCADE)
+    tour_package = models.ForeignKey(Packages, on_delete=models.CASCADE)
     image = models.ImageField(upload_to='tour_packages/')
     description = models.CharField(max_length=255, null=True, blank=True)
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)

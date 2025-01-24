@@ -9,7 +9,6 @@ class IsAgent(BasePermission):
             return True
         raise PermissionDenied(detail="Only agents are allowed to perform this action.")
         
-    
 
 class IsOwner(BasePermission):
 
