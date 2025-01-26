@@ -30,6 +30,10 @@ class Packages(models.Model):
     amount = models.IntegerField()
     destination = models.CharField(max_length=100)
     is_approved = models.BooleanField(default=False)
+
+    # class Meta:
+    #     verbrose_name = 'Package'
+    #     verbrose_prural = 'Packages'
     
     def __str__(self):
         return self.name
@@ -64,7 +68,6 @@ class PackageImage(models.Model):
     tour_package = models.ForeignKey(Packages, on_delete=models.CASCADE)
     image = models.ImageField(upload_to='tour_packages/')
     description = models.CharField(max_length=255, null=True, blank=True)
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
 
     def __str__(self):
         return f"Image for {self.tour_package.name} - {self.id}"
@@ -72,7 +75,7 @@ class PackageImage(models.Model):
     
 class ContactQuery(models.Model):
     name = models.CharField(max_length=100)
-    email = models.EmailField(unique=True)
+    email = models.EmailField()
     contact = models.CharField(max_length=100)
     messages = models.TextField()
     created_date = models.DateTimeField(auto_now_add=True)

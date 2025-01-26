@@ -17,13 +17,19 @@ class CustomUserAdmin(UserAdmin):
 admin.site.register(CustomUser, CustomUserAdmin)
 
 
+class PackageImageInline(admin.TabularInline): 
+    model = PackageImage
+    extra = 1  
+    fields = ['image', 'description']  # Fields to display in the inline
 
+# Customize the PackageAdmin
 class PackageAdmin(admin.ModelAdmin):
-    list_display = ['owner','name', 'destination','is_approved']
+    list_display = ['owner', 'name', 'destination', 'is_approved']
     list_filter = ['is_approved']
-    
+    inlines = [PackageImageInline]  # Include the inline model
 
-admin.site.register(Packages,PackageAdmin)
+admin.site.register(Packages, PackageAdmin)
+
 
 class BookingAdmin(admin.ModelAdmin):
     list_display = ('user', 'package', 'number_of_people', 'travel_date', 'book_date')
@@ -52,9 +58,11 @@ class PaymentAdmin(admin.ModelAdmin):
     
 admin.site.register(Payment, PaymentAdmin)
 
+
 class PackageImageAdmin(admin.ModelAdmin):
-    list_display= ('tour_package','image','description','user')
+    list_display= ('tour_package','image','description')
 admin.site.register(PackageImage,PackageImageAdmin)
+
 
 class ContactAdmin(admin.ModelAdmin):
     list_display = ('name','email','contact','messages')

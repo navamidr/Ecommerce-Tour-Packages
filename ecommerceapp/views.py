@@ -1,11 +1,12 @@
 from rest_framework.generics import CreateAPIView,ListCreateAPIView,RetrieveUpdateDestroyAPIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializer import UserRegistrationSerializer,PackageSerializer,BookingSerializer,PackageImageSerializer,ContactQuerySerializer,PaymentSerializer
+from .serializer import UserRegistrationSerializer,PackageSerializer,BookingSerializer,ContactQuerySerializer,PaymentSerializer
 from rest_framework.permissions import AllowAny,IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from .models import Packages,BookingTour,PackageImage,CustomUser
 from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser
 from .utils import notify_admin,notify_user
 from django.core.mail import send_mail
 from rest_framework.exceptions import ValidationError
@@ -46,109 +47,83 @@ class PackagesListView(APIView):
         serializer = PackageSerializer(packages, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
-# agent package creation 
+# # agent package creation 
 
 class PackageCreateView(APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated,IsAgent]
+    permission_classes = [IsAuthenticated, IsAgent]
+    parser_classes = [MultiPartParser, FormParser]  # Allow handling file uploads
 
-    def post(self, request,):
-        user = request.user
-        serializer = PackageSerializer(data=request.data)
+    def post(self, request):
+        serializer = PackageSerializer(data=request.data, context={"request": request})
         if serializer.is_valid():
-            serializer.save(owner=user)  
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
+            package = serializer.save()  # Save the Package instance
+            # Save the associated images
+            for key, file in request.FILES.items():
+                if key.startswith("image"):
+                    PackageImage.objects.create(
+                        tour_package=package,
+                        image=file,
+                        description=f"Image for {package.name}"
+                    )
+            return Response(serializer.data, {"message":"New Package Created"}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-#agent update packages ...
 
 class PackageUpdateView(APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsAgent,IsOwner]
+    permission_classes = [IsAuthenticated, IsAgent, IsOwner]
+    parser_classes = [MultiPartParser, FormParser]  # Allow handling file uploads
 
     def get(self, request):
         user = request.user
         packages = Packages.objects.filter(owner=user)
+        if not packages.exists():
+            return Response({"message": "No packages found for this user."}, status=status.HTTP_404_NOT_FOUND)
         serializer = PackageSerializer(packages, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
-    def put(self, request, pk):
+    def put(self, request, id):
         try:
-            package = Packages.objects.get(pk=pk)
+            package = Packages.objects.get(id=id)
         except Packages.DoesNotExist:
             return Response({"error": "Package not found."}, status=status.HTTP_404_NOT_FOUND)
 
         self.check_object_permissions(request, package)  
-        serializer = PackageSerializer(package, data=request.data, partial=True)
+        serializer = PackageSerializer(package, data=request.data, partial=True, context={"request": request})
         if serializer.is_valid():
-            serializer.save()
+            package = serializer.save()
+            # Update or add new images
+            for key, file in request.FILES.items():
+                if key.startswith("image"):
+                    PackageImage.objects.create(
+                        tour_package=package,
+                        image=file,
+                        description=f"Updated image for {package.name}"
+                    )
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def delete(self, request, pk):
+    def delete(self, request, id):
+        image_id = request.query_params.get('image_id', None)  
+
+        if image_id:
+            # Delete a specific image
+            try:
+                image = PackageImage.objects.get(pk=image_id, tour_package__owner=request.user)
+            except PackageImage.DoesNotExist:
+                return Response({"error": "Image not found or you don't have permission to delete it."}, status=status.HTTP_404_NOT_FOUND)
+
+            image.delete()
+            return Response({"message": "Image deleted successfully."}, status=status.HTTP_200_OK)
         try:
-            package = Packages.objects.get(pk=pk)
+            package = Packages.objects.get(id=id)
         except Packages.DoesNotExist:
             return Response({"error": "Package not found."}, status=status.HTTP_404_NOT_FOUND)
         self.check_object_permissions(request, package)  
         package.delete()
         return Response({"message": "Package deleted successfully."}, status=status.HTTP_200_OK)
 
-# agent image uploaded
-    
-class PackageImageView(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated,IsAgent,IsOwner]
-
-    def post(self, request):
-        user = request.user
-        package_id = request.data.get('tour_package')
-        try:
-            package = Packages.objects.get(id=package_id)
-            self.check_object_permissions(request, package)  
-        except Packages.DoesNotExist:
-            return Response({'error': 'Package not found or you are not the owner.'}, status=status.HTTP_403_FORBIDDEN)
-        serializer = PackageImageSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(user=user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def delete(self, request, id):
-        user = request.user
-        package_id = request.data.get('tour_package')
-        try:
-            package = Packages.objects.get(id=package_id)
-            self.check_object_permissions(request, package)  
-        except Packages.DoesNotExist:
-            return Response({'error': 'Package not found or you are not the owner.'}, status=status.HTTP_403_FORBIDDEN)
-        try:
-            image = PackageImage.objects.get(id=id, tour_package=package)
-            image.delete()
-            return Response({'message': 'Package image deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
-        except PackageImage.DoesNotExist:
-            return Response({'error': 'Package image not found'}, status=status.HTTP_404_NOT_FOUND)
-
-# user image view...
-
-class PackageImageListView(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsUser]  
-
-    def get(self, request, id):
-        user = request.user
-        package_id = request.data.get('tour_package')
-        try:
-            package = Packages.objects.get(Packages, id=package_id)
-        except Packages.DoesNotExist:
-            return Response({'error': 'Package not found'}, status=status.HTTP_403_FORBIDDEN)
-        
-        images = PackageImage.objects.filter(tour_package=package)
-        if not images.exists():
-            return Response({"message": "No images found for this package."}, status=status.HTTP_404_NOT_FOUND)
-        serializer = PackageImageSerializer(images, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
 # booking 
     
@@ -217,12 +192,8 @@ class PaymentView(APIView):
         serializer = PaymentSerializer(data=request.data)
         if serializer.is_valid():
             payment = serializer.save() 
-
-
-
-
-
-
+            
+          #  payment functions
             return Response({
                 "message": "Payment processed successfully.",
                 "payment_id": payment.id,
@@ -231,14 +202,14 @@ class PaymentView(APIView):
 
 # contactquery view 
 
-class ContactQueryView(APIView):
+class ContactQueryView(CreateAPIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def post(self,request):
+        print(self.request.user)
         serializer = ContactQuerySerializer(data=request.data)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            return Response({"message":"your query has been submitted successfully"}, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"message":"your query has been submitted successfully"}, status=status.HTTP_201_CREATED)
     

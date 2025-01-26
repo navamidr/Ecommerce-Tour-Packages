@@ -28,6 +28,9 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         email_regex = r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)"
         if not re.match(email_regex, value):
             raise ValidationError("Enter a valid email address.")
+        
+        if User.objects.filter(email=value).exists():
+            raise ValidationError("This email address is already registered.")
         return value
 
     def create(self, validated_data):
@@ -39,16 +42,30 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         return {**super().validate(attrs), "message": "login successful."}
     
+    
+class PackageImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PackageImage
+        fields = ['id', 'tour_package', 'image', 'description']
+
+    def validate_tour_package(self, value):
+        if not value:
+            raise serializers.ValidationError("Tour package is required.")
+        return value
+    
 
 class PackageSerializer(serializers.ModelSerializer):
+    images = PackageImageSerializer(many=True, read_only=True, source='packageimage_set')
+
     class Meta:
         model = Packages
-        fields = ['id', 'name', 'description', 'amount', 'start_date', 'end_date', 'destination', 'is_approved']
+        fields = ['id', 'name', 'description', 'amount', 'start_date', 'end_date', 'destination', 'is_approved','images']
+
     def validate_amount(self, value):
         if value <= 0:
             raise serializers.ValidationError("Amount must be a positive value.")
         return value
-    
+
     def validate_start_date(self,start_date):
         if start_date < date.today():
             raise serializers.ValidationError("Travel date must be in the future.")
@@ -61,6 +78,32 @@ class PackageSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'end_date': "End date must be after the start date."})
         return attrs
     
+    def create(self, validated_data):
+        request = self.context['request']
+        images = request.FILES.getlist('images')  # Fetch all uploaded files with key 'images'
+        descriptions = request.data.getlist('images.description', [])
+
+        package = Packages.objects.create(
+            owner=request.user,
+            name=validated_data.get('name'),
+            description=validated_data.get('description'),
+            amount=validated_data.get('amount'),
+            start_date=validated_data.get('start_date'),
+            end_date=validated_data.get('end_date'),
+            destination=validated_data.get('destination'),
+            is_approved=validated_data.get('is_approved', False),
+        )
+
+        # Save associated images
+        for image, description in zip(images, descriptions):
+            PackageImage.objects.create(
+                tour_package=package,
+                image=image,
+                description=description,
+            )
+
+        return package
+
 
 class BookingSerializer(serializers.ModelSerializer):
     class Meta:
@@ -127,18 +170,6 @@ class PaymentSerializer(serializers.ModelSerializer):
         booking = validated_data['booking']
         validated_data['amount'] = booking.amount 
         return Payment.objects.create(**validated_data)
-
-
-
-class PackageImageSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PackageImage
-        fields = ['id', 'tour_package', 'image', 'description']
-
-    def validate_tour_package(self, value):
-        if not value:
-            raise serializers.ValidationError("Tour package is required.")
-        return value
         
 
 class ContactQuerySerializer(serializers.ModelSerializer):
@@ -150,7 +181,10 @@ class ContactQuerySerializer(serializers.ModelSerializer):
         email_regex = r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)"
         if not re.match(email_regex, value):
             raise ValidationError("Enter a valid email address.")
+        if User.objects.filter(email=value).exists():
+            raise ValidationError("This email address is already registered.")
         return value
+        
     
     def validate_contact(self, value):
         if not re.fullmatch(r"^\d{10}$", value): 
@@ -161,4 +195,13 @@ class ContactQuerySerializer(serializers.ModelSerializer):
         if len(value.strip()) < 10:
             raise serializers.ValidationError("Message should be at least 10 characters long.")
         return value
+    
+    def create(self, validated_data):
+        contact_query = ContactQuery.objects.create(
+            name=validated_data.get('name'),
+            email=validated_data.get('email'),
+            contact=validated_data.get('contact'),
+            messages=validated_data.get('messages')
+        )
+        return contact_query
 
