@@ -181,10 +181,7 @@ class ContactQuerySerializer(serializers.ModelSerializer):
         email_regex = r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)"
         if not re.match(email_regex, value):
             raise ValidationError("Enter a valid email address.")
-        if User.objects.filter(email=value).exists():
-            raise ValidationError("This email address is already registered.")
         return value
-        
     
     def validate_contact(self, value):
         if not re.fullmatch(r"^\d{10}$", value): 
