@@ -1,10 +1,11 @@
 from rest_framework.generics import CreateAPIView,ListCreateAPIView,RetrieveUpdateDestroyAPIView
 from rest_framework.response import Response
 from rest_framework import status
+import stripe
 from .serializer import UserRegistrationSerializer,PackageSerializer,BookingSerializer,ContactQuerySerializer,PaymentSerializer
 from rest_framework.permissions import AllowAny,IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from .models import Packages,BookingTour,PackageImage,CustomUser
+from .models import Packages,BookingTour,PackageImage,CustomUser,Payment
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser
 from .utils import notify_admin,notify_user
@@ -13,6 +14,9 @@ from rest_framework.exceptions import ValidationError
 from .permissions import IsAgent, IsOwner,IsUser
 from .serializer import CustomTokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
+from django.conf import settings
+
+stripe.api_key = settings.STRIPE_SECRET_KEY
 
 # register view
 
@@ -188,17 +192,56 @@ class PaymentView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated,IsUser]
 
-    def post(self,request):
-        serializer = PaymentSerializer(data=request.data)
-        if serializer.is_valid():
-            payment = serializer.save() 
-            
-          #  payment functions
+    def post(self, request):
+        booking_id = request.data.get("booking_id")  # Fetch booking_id from the request body
+        if not booking_id:
+            return Response({"error": "Booking ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Retrieve the booking object
+            booking = BookingTour.objects.get(id=booking_id, user=request.user)  # Ensure user owns the booking
+
+            # Calculate amount in cents
+            amount = int(booking.amount) * 100  # Convert to cents for Stripe
+
+            # Create Stripe Checkout session
+            session = stripe.checkout.Session.create(
+                payment_method_types=["card"],
+                line_items=[{
+                    "price_data": {
+                        "currency": "usd",
+                        "product_data": {"name": f"Booking for {booking.package.name}"},
+                        "unit_amount": amount,
+                    },
+                    "quantity": 1,
+                }],
+                mode="payment",
+                success_url=f"{settings.YOUR_DOMAIN}/payment-success?session_id={{CHECKOUT_SESSION_ID}}",
+                cancel_url=f"{settings.YOUR_DOMAIN}/payment-cancel",
+            )
+
+            # Save payment details in the database
+            payment = Payment.objects.create(
+                booking=booking,
+                amount=booking.amount,
+                status="pending",
+                transaction_id=session.id,
+                checkout_id=session.id,
+            )
+
+            # Respond with Stripe session details
             return Response({
-                "message": "Payment processed successfully.",
+                "message": "Stripe Checkout session created successfully.",
+                "session_id": session.id,
+                "url": session.url,
                 "payment_id": payment.id,
-                }, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            }, status=status.HTTP_201_CREATED)
+
+        except BookingTour.DoesNotExist:
+            return Response({"error": "Booking not found or unauthorized access."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 # contactquery view 
 

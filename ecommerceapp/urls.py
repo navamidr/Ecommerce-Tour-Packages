@@ -13,7 +13,8 @@ urlpatterns = [
     path('bookingcreate/',BookingCreate.as_view(),name='booking-create'),
     path('bookingcreate/<int:id>/',BookingCreate.as_view(),name='booking-create'),
     path('bookings/user/<int:user_id>/', BookingCreate.as_view(), name='user-bookings'),
-    path('payment/',PaymentView.as_view(),name='payment'),
-    path('contactquery/',ContactQueryView.as_view(),name='Contact-query')
+
+    path('create-checkout-session/', PaymentView.as_view(), name='create_checkout_session'),
+    path('contactquery/',ContactQueryView.as_view(), name='Contact-query')
 
 ]

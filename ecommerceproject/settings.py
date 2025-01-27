@@ -171,3 +171,7 @@ DEFAULT_FROM_EMAIL = env.str('DEFAULT_FROM_EMAIL', default='admin@gmail.com')
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+
+STRIPE_SECRET_KEY = "your_secret_key"
+STRIPE_PUBLISHABLE_KEY = "your_publishable_key"
