@@ -70,6 +70,15 @@ class PackageCreateView(APIView):
                         image=file,
                         description=f"Image for {package.name}"
                     )
+            package_details = {
+                "Title": package.name,
+                "Description": package.description,
+                "Price": package.price,
+                "Created By": request.user.email
+            }
+
+            notify_admin("Package Creation", details=package_details, user_email=request.user.email)
+
             return Response(serializer.data, {"message":"New Package Created"}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -144,8 +153,8 @@ class BookingCreate(APIView):
 
                 details = {
                     "title":package.name,
-                    "number_of_people":booking.number_of_people,
-                    "travel_date":booking.travel_date,
+                    "number of people":booking.number_of_people,
+                    "travel date":booking.travel_date,
                  }
                 
                 notify_admin("Booking", details,user_email=request.user.email)
@@ -216,8 +225,8 @@ class PaymentView(APIView):
                     "quantity": 1,
                 }],
                 mode="payment",
-                success_url=f"{settings.YOUR_DOMAIN}/payment-success?session_id={{CHECKOUT_SESSION_ID}}",
-                cancel_url=f"{settings.YOUR_DOMAIN}/payment-cancel",
+                success_url=f"{settings.YOUR_DOMAIN}/api/payment-success?session_id={{CHECKOUT_SESSION_ID}}",
+                cancel_url=f"{settings.YOUR_DOMAIN}/api/payment-cancel",
             )
 
             # Save payment details in the database
@@ -241,6 +250,74 @@ class PaymentView(APIView):
             return Response({"error": "Booking not found or unauthorized access."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+    def get(self, request):
+            session_id = request.GET.get('session_id')
+            if not session_id:
+                return Response({'error': 'Session ID is missing'}, status=status.HTTP_404_NOT_FOUND)
+
+            try:
+                # Retrieve the session from Stripe
+                session = stripe.checkout.Session.retrieve(session_id)
+
+                # Find the associated Payment record
+                payment = Payment.objects.get(checkout_id=session_id)
+
+                # Update payment status based on Stripe's response
+                if session.payment_status == 'paid':
+                    payment.status = 'completed'
+                    payment.save()  
+
+                    payment_details = {
+                    "title":payment.booking.package.name,
+                    "Transaction ID": payment.transaction_id,
+                    "Amount": f"${payment.amount:.2f}",
+                    "Status": payment.status,
+                    "Booking": str(payment.booking),
+                    }
+
+                # Notify admin and user
+                    notify_admin(notification_type="Payment",details=payment_details,user_email=request.user.email)
+                    notify_user(notification_type="Payment",details=payment_details,user_email=request.user.email)
+
+                    return Response({
+                        "message": "Payment successful!",
+                        "payment_id":payment.id,
+                        "amount":payment.amount,
+                        "payment status":session.payment_status,
+                    }, status=status.HTTP_200_OK)
+                else:
+                    return Response({'error': 'Payment not completed'}, status=status.HTTP_400_BAD_REQUEST)
+
+            except Payment.DoesNotExist:
+                return Response({'error': 'Payment not found'}, status=status.HTTP_404_NOT_FOUND)
+            except Exception as e:
+                return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+
+class PaymentCancelView(APIView):
+
+    def get(self, request):
+        session_id = request.GET.get('session_id')
+
+        if not session_id:
+            return Response({'error': 'Session ID is missing'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Find the payment using the session_id
+            payment = Payment.objects.get(checkout_id=session_id)
+            payment.status = 'failed'
+            payment.save() 
+            return Response({
+                'message': 'Payment was canceled.',
+                "payment_id":payment.id,
+                "amount":payment.amount,
+                }, status=status.HTTP_200_OK)
+
+        except Payment.DoesNotExist:
+            return Response({'error': 'Payment not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # contactquery view 

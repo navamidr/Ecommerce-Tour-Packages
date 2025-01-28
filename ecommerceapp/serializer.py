@@ -83,16 +83,7 @@ class PackageSerializer(serializers.ModelSerializer):
         images = request.FILES.getlist('images')  # Fetch all uploaded files with key 'images'
         descriptions = request.data.getlist('images.description', [])
 
-        package = Packages.objects.create(
-            owner=request.user,
-            name=validated_data.get('name'),
-            description=validated_data.get('description'),
-            amount=validated_data.get('amount'),
-            start_date=validated_data.get('start_date'),
-            end_date=validated_data.get('end_date'),
-            destination=validated_data.get('destination'),
-            is_approved=validated_data.get('is_approved', False),
-        )
+        package = Packages.objects.create(owner=request.user, **validated_data)
 
         # Save associated images
         for image, description in zip(images, descriptions):
@@ -194,11 +185,6 @@ class ContactQuerySerializer(serializers.ModelSerializer):
         return value
     
     def create(self, validated_data):
-        contact_query = ContactQuery.objects.create(
-            name=validated_data.get('name'),
-            email=validated_data.get('email'),
-            contact=validated_data.get('contact'),
-            messages=validated_data.get('messages')
-        )
-        return contact_query
+        return ContactQuery.objects.create(**validated_data)
+    
 
