@@ -54,11 +54,11 @@ class BookingTour(models.Model):
     
 class Payment(models.Model):
     booking = models.ForeignKey(BookingTour,on_delete=models.CASCADE)
-    status = models.CharField(max_length=50,choices=[('pending','Pending'),('completed','Completed'),('failed','Failed')],default='pending')
+    status = models.CharField(max_length=150,choices=[('pending','Pending'),('completed','Completed'),('failed','Failed')],default='pending')
     amount = models.IntegerField()
     transaction_id = models.CharField(max_length=150,unique=True,default='default_value')
     created_date =models.DateTimeField(auto_now_add=True)
-    checkout_id = models.CharField(max_length=50,default='stripe',unique=True)
+    checkout_id = models.CharField(max_length=300,default='stripe',unique=True)
 
     def __str__(self):
         return f"Payment for Booking {self.booking.id} - {self.status}"

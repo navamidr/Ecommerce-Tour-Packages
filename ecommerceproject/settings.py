@@ -173,5 +173,7 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 
-STRIPE_SECRET_KEY = "your_secret_key"
-STRIPE_PUBLISHABLE_KEY = "your_publishable_key"
+STRIPE_SECRET_KEY = env.str("STRIPE_SECRET_KEY")
+STRIPE_PUBLISHABLE_KEY = env.str("STRIPE_PUBLISHABLE_KEY")
+STRIPE_WEBHOOK_SECRET = env.str("STRIPE_WEBHOOK_SECRET")
+YOUR_DOMAIN = env.str("YOUR_DOMAIN", default="http://localhost:8000") 
