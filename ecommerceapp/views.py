@@ -15,7 +15,7 @@ from .permissions import IsAgent, IsOwner,IsUser
 from .serializer import CustomTokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.conf import settings
-import json
+
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -29,7 +29,7 @@ class UserRegistrationView(CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return Response({"message": "User registered successfully."}, status=status.HTTP_201_CREATED)
+            return Response({"message": "User registered successfully.","user":serializer.data}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 # login 
@@ -115,6 +115,15 @@ class PackageUpdateView(APIView):
                         image=file,
                         description=f"Updated image for {package.name}"
                     )
+            # Notify admin on package update
+            details = {
+                "title": f"Package '{package.name}' Updated",
+                "Destination": package.destination,
+                "Amount": package.amount,
+                "Updated By": request.user.email,
+            }
+            notify_admin("Package Update", details, request.user.email)
+
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -129,6 +138,14 @@ class PackageUpdateView(APIView):
                 return Response({"error": "Image not found or you don't have permission to delete it."}, status=status.HTTP_404_NOT_FOUND)
 
             image.delete()
+            # Notify admin on image deletion
+            details = {
+                "title": f"Image Deletion for Package '{image.tour_package.name}'",
+                "Description": image.description,
+                "Deleted By": request.user.email,
+            }
+            notify_admin("Image Deletion", details, request.user.email)
+
             return Response({"message": "Image deleted successfully."}, status=status.HTTP_200_OK)
         try:
             package = Packages.objects.get(id=id)
@@ -136,6 +153,13 @@ class PackageUpdateView(APIView):
             return Response({"error": "Package not found."}, status=status.HTTP_404_NOT_FOUND)
         self.check_object_permissions(request, package)  
         package.delete()
+
+        # Notify admin on package deletion
+        details = {
+            "title": f"Package '{package.name}' Deleted",
+            "Deleted By": request.user.email,
+        }
+        notify_admin("Package Deletion", details, request.user.email)
         return Response({"message": "Package deleted successfully."}, status=status.HTTP_200_OK)
 
 
@@ -218,7 +242,6 @@ class CreateCheckoutSessionView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-
             # Calculate amount in cents
             amount = int(booking.amount) * 100  # Convert to cents for Stripe
 
@@ -256,7 +279,7 @@ class CreateCheckoutSessionView(APIView):
             }, status=status.HTTP_201_CREATED)
 
         except BookingTour.DoesNotExist:
-            return Response({"error": "Booking not found or unauthorized access."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "Booking not found."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -284,7 +307,7 @@ class PaymentSuccessView(APIView):
                 payment_details = {
                     "title": payment.booking.package.name,
                     "Transaction ID": payment.transaction_id,
-                    "Amount": f"${payment.amount:.2f}",
+                    "Amount": payment.amount,
                     "Status": payment.status,
                     "Booking": str(payment.booking),
                 }

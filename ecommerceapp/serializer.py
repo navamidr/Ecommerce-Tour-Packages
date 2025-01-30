@@ -97,6 +97,7 @@ class PackageSerializer(serializers.ModelSerializer):
 
 
 class BookingSerializer(serializers.ModelSerializer):
+    
     class Meta:
         model = BookingTour
         fields = ['id', 'package','number_of_people', 'travel_date', 'book_date','status']
