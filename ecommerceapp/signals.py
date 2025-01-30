@@ -10,6 +10,7 @@ from django.conf import settings
 def send_contact_email_to_admin(sender, instance, created, **kwargs):
     if created:
         details = {
+            
             "name":instance.name,
             "email":instance.email,
             "contact":instance.contact,

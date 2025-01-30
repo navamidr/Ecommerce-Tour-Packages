@@ -15,6 +15,7 @@ from .permissions import IsAgent, IsOwner,IsUser
 from .serializer import CustomTokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.conf import settings
+import json
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -71,15 +72,15 @@ class PackageCreateView(APIView):
                         description=f"Image for {package.name}"
                     )
             package_details = {
-                "Title": package.name,
+                "title": package.name,
                 "Description": package.description,
-                "Price": package.price,
-                "Created By": request.user.email
+                "Amount": package.amount,
+                "Created By": request.user.email,
             }
 
             notify_admin("Package Creation", details=package_details, user_email=request.user.email)
 
-            return Response(serializer.data, {"message":"New Package Created"}, status=status.HTTP_201_CREATED)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -197,7 +198,7 @@ class BookingCreate(APIView):
  
 # payment view 
 
-class PaymentView(APIView):
+class CreateCheckoutSessionView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated,IsUser]
 
@@ -210,6 +211,14 @@ class PaymentView(APIView):
             # Retrieve the booking object
             booking = BookingTour.objects.get(id=booking_id, user=request.user)  # Ensure user owns the booking
 
+            existing_payment = Payment.objects.filter(booking=booking, status='completed').first()
+            if existing_payment:
+                return Response(
+                    {"error": f"Payment for booking {booking.package.name} has already been completed."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+
             # Calculate amount in cents
             amount = int(booking.amount) * 100  # Convert to cents for Stripe
 
@@ -218,7 +227,7 @@ class PaymentView(APIView):
                 payment_method_types=["card"],
                 line_items=[{
                     "price_data": {
-                        "currency": "usd",
+                        "currency": "inr",
                         "product_data": {"name": f"Booking for {booking.package.name}"},
                         "unit_amount": amount,
                     },
@@ -250,50 +259,54 @@ class PaymentView(APIView):
             return Response({"error": "Booking not found or unauthorized access."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+
+class PaymentSuccessView(APIView):
+    permission_classes = [IsAuthenticated,IsUser]
+
     def get(self, request):
-            session_id = request.GET.get('session_id')
-            if not session_id:
-                return Response({'error': 'Session ID is missing'}, status=status.HTTP_404_NOT_FOUND)
+        session_id = request.GET.get('session_id')
+        if not session_id:
+            return Response({'error': 'Session ID is missing'}, status=status.HTTP_404_NOT_FOUND)
 
-            try:
-                # Retrieve the session from Stripe
-                session = stripe.checkout.Session.retrieve(session_id)
+        try:
+            # Retrieve the session from Stripe
+            session = stripe.checkout.Session.retrieve(session_id)
 
-                # Find the associated Payment record
-                payment = Payment.objects.get(checkout_id=session_id)
+            # Find the associated Payment record
+            payment = Payment.objects.get(checkout_id=session_id)
 
-                # Update payment status based on Stripe's response
-                if session.payment_status == 'paid':
-                    payment.status = 'completed'
-                    payment.save()  
+            # Update payment status based on Stripe's response
+            if session.payment_status == 'paid':
+                payment.status = 'completed'
+                payment.transaction_id = session.payment_intent  # Set the transaction ID from Stripe's session
+                payment.save()
 
-                    payment_details = {
-                    "title":payment.booking.package.name,
+                payment_details = {
+                    "title": payment.booking.package.name,
                     "Transaction ID": payment.transaction_id,
                     "Amount": f"${payment.amount:.2f}",
                     "Status": payment.status,
                     "Booking": str(payment.booking),
-                    }
+                }
 
                 # Notify admin and user
-                    notify_admin(notification_type="Payment",details=payment_details,user_email=request.user.email)
-                    notify_user(notification_type="Payment",details=payment_details,user_email=request.user.email)
+                notify_admin(notification_type="Payment", details=payment_details, user_email=request.user.email)
+                notify_user(notification_type="Payment", details=payment_details, user_email=request.user.email)
 
-                    return Response({
-                        "message": "Payment successful!",
-                        "payment_id":payment.id,
-                        "amount":payment.amount,
-                        "payment status":session.payment_status,
-                    }, status=status.HTTP_200_OK)
-                else:
-                    return Response({'error': 'Payment not completed'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({
+                    "message": "Payment successful!",
+                    "payment_id": payment.id,
+                    "transaction_id": payment.transaction_id,  # Include transaction ID in the response
+                    "amount": payment.amount,
+                    "payment_status": session.payment_status,
+                }, status=status.HTTP_200_OK)
+            else:
+                return Response({'error': 'Payment not completed'}, status=status.HTTP_400_BAD_REQUEST)
 
-            except Payment.DoesNotExist:
-                return Response({'error': 'Payment not found'}, status=status.HTTP_404_NOT_FOUND)
-            except Exception as e:
-                return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            
+        except Payment.DoesNotExist:
+            return Response({'error': 'Payment not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class PaymentCancelView(APIView):
 
