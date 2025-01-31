@@ -85,14 +85,13 @@ class PackageSerializer(serializers.ModelSerializer):
 
         package = Packages.objects.create(owner=request.user, **validated_data)
 
-        # Save associated images
+                # Save associated images
         for image, description in zip(images, descriptions):
             PackageImage.objects.create(
                 tour_package=package,
                 image=image,
                 description=description,
             )
-
         return package
 
 
