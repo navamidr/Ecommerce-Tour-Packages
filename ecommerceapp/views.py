@@ -2,6 +2,7 @@ from rest_framework.generics import CreateAPIView,ListCreateAPIView,RetrieveUpda
 from rest_framework.response import Response
 from rest_framework import status
 import stripe
+from django.utils.timezone import now
 from .serializer import UserRegistrationSerializer,PackageSerializer,BookingSerializer,ContactQuerySerializer,PaymentSerializer
 from rest_framework.permissions import AllowAny,IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -45,10 +46,11 @@ class PackagesListView(APIView):
 
     def get(self, request):
         search_query = request.query_params.get('search', '')
+        today = now().date() 
         if search_query:
             packages = Packages.objects.filter(is_approved=True,name__icontains=search_query)
         else:
-            packages = Packages.objects.filter(is_approved=True)
+            packages = Packages.objects.filter(is_approved=True,start_date__gt=today)
         serializer = PackageSerializer(packages, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
@@ -63,15 +65,7 @@ class PackageCreateView(APIView):
         serializer = PackageSerializer(data=request.data, context={"request": request})
         if serializer.is_valid():
             package = serializer.save()  # Save the Package instance
-
-            for key, file in request.FILES.items():
-                if key.startswith("image"):
-                    PackageImage.objects.create(
-                        tour_package=package,
-                        image=file,
-                        description=f"Image for {package.name}"
-                    )
-           
+            
             package_details = {
                 "title": package.name,
                 "Description": package.description,
@@ -108,15 +102,7 @@ class PackageUpdateView(APIView):
         serializer = PackageSerializer(package, data=request.data, partial=True, context={"request": request})
         if serializer.is_valid():
             package = serializer.save()
-
-            # # Update or add new images
-            for key, file in request.FILES.items():
-                if key.startswith("image"):
-                    PackageImage.objects.create(
-                        tour_package=package,
-                        image=file,
-                        description=f"Updated image for {package.name}"
-                    )
+            
             # Notify admin on package update
             details = {
                 "title": f"Package '{package.name}' Updated",
