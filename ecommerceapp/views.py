@@ -63,7 +63,7 @@ class PackageCreateView(APIView):
         serializer = PackageSerializer(data=request.data, context={"request": request})
         if serializer.is_valid():
             package = serializer.save()  # Save the Package instance
-            # Save the associated images
+
             for key, file in request.FILES.items():
                 if key.startswith("image"):
                     PackageImage.objects.create(
@@ -71,6 +71,7 @@ class PackageCreateView(APIView):
                         image=file,
                         description=f"Image for {package.name}"
                     )
+           
             package_details = {
                 "title": package.name,
                 "Description": package.description,
@@ -107,7 +108,8 @@ class PackageUpdateView(APIView):
         serializer = PackageSerializer(package, data=request.data, partial=True, context={"request": request})
         if serializer.is_valid():
             package = serializer.save()
-            # Update or add new images
+
+            # # Update or add new images
             for key, file in request.FILES.items():
                 if key.startswith("image"):
                     PackageImage.objects.create(
@@ -266,7 +268,6 @@ class CreateCheckoutSessionView(APIView):
                 booking=booking,
                 amount=booking.amount,
                 status="pending",
-                transaction_id=session.id,
                 checkout_id=session.id,
             )
 
@@ -284,7 +285,7 @@ class CreateCheckoutSessionView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class PaymentSuccessView(APIView):
-    permission_classes = [IsAuthenticated,IsUser]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         session_id = request.GET.get('session_id')
@@ -313,8 +314,8 @@ class PaymentSuccessView(APIView):
                 }
 
                 # Notify admin and user
-                notify_admin(notification_type="Payment", details=payment_details, user_email=request.user.email)
-                notify_user(notification_type="Payment", details=payment_details, user_email=request.user.email)
+                notify_admin(notification_type="Payment", details=payment_details, user_email=payment.booking.user.email)
+                notify_user(notification_type="Payment", details=payment_details, user_email=payment.booking.user.email)
 
                 return Response({
                     "message": "Payment successful!",
