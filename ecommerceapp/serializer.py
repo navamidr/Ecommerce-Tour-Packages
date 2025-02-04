@@ -85,14 +85,36 @@ class PackageSerializer(serializers.ModelSerializer):
 
         package = Packages.objects.create(owner=request.user, **validated_data)
 
-                # Save associated images
-        for image, description in zip(images, descriptions):
-            PackageImage.objects.create(
+            # Update or add new images
+        for key, file in request.FILES.items():
+            if key.startswith("image"):
+                PackageImage.objects.create(
                 tour_package=package,
-                image=image,
-                description=description,
+                image=file,
+                description=f"Image for {package.name}"
             )
         return package
+    
+    def update(self, instance, validated_data):
+        request = self.context['request']
+        images = request.FILES.getlist('images')
+
+        # Update package details
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Clear old images if any, and add new ones
+        if images:
+            PackageImage.objects.filter(tour_package=instance).delete()
+            for key, file in request.FILES.items():
+                if key.startswith("image"):
+                    PackageImage.objects.create(
+                        tour_package=instance,
+                        image=file,
+                        description=f"Updated image for {instance.name}"
+                )
+            return instance
 
 
 class BookingSerializer(serializers.ModelSerializer):
