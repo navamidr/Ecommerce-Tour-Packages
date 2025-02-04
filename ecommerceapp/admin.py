@@ -32,29 +32,17 @@ admin.site.register(Packages, PackageAdmin)
 
 
 class BookingAdmin(admin.ModelAdmin):
-    list_display = ('user', 'package', 'number_of_people', 'travel_date', 'book_date')
+    list_display = ('user', 'package', 'number_of_people', 'travel_date', 'book_date','status')
     search_fields = ('user__username', 'user__email', 'package__name')
-    fieldsets = (
-        ('User and Package Details', {
-            'fields': ('user', 'package')
-        }),
-        ('Booking Details', {
-            'fields': ('number_of_people', 'travel_date')
-        }),
-        ('Metadata', {
-            'fields': ('book_date',),
-            'classes': ('collapse',), 
-        }),
-    )
     readonly_fields = ('book_date',)
 
 admin.site.register(BookingTour, BookingAdmin)
 
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ('booking', 'status', 'amount', 'created_date')
+    list_display = ('booking', 'status', 'amount', 'transaction_id','created_date')
     list_filter = ('status', 'created_date')
     search_fields = ('booking__id', 'booking__user__username', 'booking__package__name')
-    readonly_fields = ('created_date',)
+    readonly_fields = ('created_date','transaction_id')
     
 admin.site.register(Payment, PaymentAdmin)
 

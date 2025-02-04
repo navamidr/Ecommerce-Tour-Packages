@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Success</title>
+</head>
+<body>
+    <h1>Payment Successful!</h1>
+    <p>Thank you for your payment. Your booking for the package "{{ package.name }}" has been successfully completed.</p>
+    <p>Transaction ID: {{ payment.transaction_id }}</p>
+    <p>Amount Paid: INR {{ payment.amount }}</p>
+    <p>payement Status: {{ payment.status }}</p>
+    <p>User: {{ user.username }}</p>
+</body>
+</html>

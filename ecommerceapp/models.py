@@ -44,7 +44,7 @@ class BookingTour(models.Model):
     package =  models.ForeignKey(Packages,on_delete=models.CASCADE)
     number_of_people = models.PositiveIntegerField()
     amount = models.IntegerField()
-    status = models.CharField(max_length=50,choices=[('card','Card'),('gpay','Gpay')])
+    status = models.CharField(max_length=50,choices=[('pending','Pending'),('failed','Failed'),('cancel','Cancel'),('completed','Completed')],default='pending')
     travel_date = models.DateField()
     book_date = models.DateTimeField(auto_now_add=True)
 
