@@ -1,6 +1,6 @@
 from django.urls import path
 from rest_framework_simplejwt.views import (TokenObtainPairView,TokenRefreshView,)
-from .views import UserRegistrationView,PackagesListView,PackageCreateView,PackageUpdateView,BookingCreate,CreateCheckoutSessionView, PaymentSuccessView,PaymentCancelView,CustomTokenObtainPairView,ContactQueryView
+from .views import UserRegistrationView,PackagesListView,PackageCreateView,PackageUpdateView,BookingCreate,CreateCheckoutSessionView, PaymentSuccessView,PaymentCancelView,CancelPageView,CustomTokenObtainPairView,ContactQueryView,SuccessPageView
 
 urlpatterns = [
     path('register/', UserRegistrationView.as_view(), name='register'),
@@ -16,6 +16,10 @@ urlpatterns = [
     path('create/checkoutsession/', CreateCheckoutSessionView.as_view(), name='create-checkout-ession'),
     path('payment-success/', PaymentSuccessView.as_view(),name='payment-success'),
     path('payment-cancel/', PaymentCancelView.as_view(), name='payment-cancel'),
-    path('contactquery/',ContactQueryView.as_view(), name='contact-query')
+    path('contactquery/',ContactQueryView.as_view(), name='contact-query'),
+
+    path('success/<int:payment_id>/', SuccessPageView.as_view(), name='success'),
+    path('cancel/<int:payment_id>/', CancelPageView.as_view(), name='cancel'),
+
 
 ]

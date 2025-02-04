@@ -134,8 +134,13 @@ class BookingSerializer(serializers.ModelSerializer):
         return travel_date
     
     def validate(self, attrs):
+        user = self.context['request'].user
         package = attrs.get('package')
         travel_date = attrs.get('travel_date')
+
+        if BookingTour.objects.filter(user=user, package=package, status__in=['pending']).exists():
+            raise serializers.ValidationError("You already have an incomplete booking for this package.")
+
         if package and travel_date:
             if travel_date < package.start_date:
                 raise serializers.ValidationError({'travel_date': f"Travel date must not be before the package's start date ({package.start_date})."})
@@ -158,7 +163,7 @@ class BookingSerializer(serializers.ModelSerializer):
             package=package,
             number_of_people=number_of_people,
             travel_date=validated_data['travel_date'],
-            status=validated_data['status'],
+            status=validated_data.get('status', 'pending'),
             amount=amount
         )
 
