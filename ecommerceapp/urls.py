@@ -1,6 +1,6 @@
 from django.urls import path
-from rest_framework_simplejwt.views import (TokenObtainPairView,TokenRefreshView,)
-from .views import UserRegistrationView,PackagesListView,PackageCreateView,PackageUpdateView,BookingCreate,CreateCheckoutSessionView, PaymentSuccessView,PaymentCancelView,CancelPageView,CustomTokenObtainPairView,ContactQueryView,SuccessPageView
+from rest_framework_simplejwt.views import (TokenRefreshView,)
+from .views import UserRegistrationView,PackagesListView,PackageCreateView,PackageUpdateView,BookingCreate,CreateCheckoutSessionView, PaymentSuccessView,PaymentCancelView,CustomTokenObtainPairView,ContactQueryView
 
 urlpatterns = [
     path('register/', UserRegistrationView.as_view(), name='register'),
@@ -11,15 +11,11 @@ urlpatterns = [
     path('packages/',PackageUpdateView.as_view(),name = 'package-retrieve-update-destroy'),
     path('packages/<int:id>/',PackageUpdateView.as_view(),name = 'package-retrieve-update-destroy'),
     path('bookingcreate/',BookingCreate.as_view(),name='booking-create'),
-    path('bookingcreate/<int:id>/',BookingCreate.as_view(),name='booking-create'),
+    path('booking/cancel/<int:id>/',BookingCreate.as_view(),name='booking-cancel'),
     path('bookings/user/<int:user_id>/', BookingCreate.as_view(), name='user-bookings'),
     path('create/checkoutsession/', CreateCheckoutSessionView.as_view(), name='create-checkout-ession'),
     path('payment-success/', PaymentSuccessView.as_view(),name='payment-success'),
     path('payment-cancel/', PaymentCancelView.as_view(), name='payment-cancel'),
     path('contactquery/',ContactQueryView.as_view(), name='contact-query'),
-
-    path('success/<int:payment_id>/', SuccessPageView.as_view(), name='success'),
-    path('cancel/<int:payment_id>/', CancelPageView.as_view(), name='cancel'),
-
 
 ]
