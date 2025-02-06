@@ -21,7 +21,7 @@ from django.conf import settings
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/',include('ecommerceapp.urls')),
+    path('api/v1/',include('ecommerceapp.urls')),
 ]
 
 if settings.DEBUG:

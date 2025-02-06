@@ -1,23 +1,22 @@
-from rest_framework.generics import CreateAPIView,ListCreateAPIView,RetrieveUpdateDestroyAPIView
+from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
 from rest_framework import status
 import stripe
 from django.utils.timezone import now
-from .serializer import UserRegistrationSerializer,PackageSerializer,BookingSerializer,ContactQuerySerializer,PaymentSerializer
+from .serializer import UserRegistrationSerializer,PackageSerializer,BookingSerializer,ContactQuerySerializer
 from rest_framework.permissions import AllowAny,IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from .models import Packages,BookingTour,PackageImage,CustomUser,Payment
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser
 from .utils import notify_admin,notify_user
-from django.core.mail import send_mail
 from rest_framework.exceptions import ValidationError
 from .permissions import IsAgent, IsOwner,IsUser
 from .serializer import CustomTokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.conf import settings
-from django.shortcuts import render,redirect
-from django.http import Http404
+from django.shortcuts import render
+
 
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -167,8 +166,10 @@ class BookingCreate(APIView):
 
                 details = {
                     "title":package.name,
+                    "user":booking.user.username,
                     "number of people":booking.number_of_people,
                     "travel date":booking.travel_date,
+
                  }
                 
                 notify_admin("Booking Successfully", details,user_email=request.user.email)
@@ -205,12 +206,23 @@ class BookingCreate(APIView):
             if request.user != booking.user:
                 return Response({'error': 'You are not authorized to cancel this booking'}, status=status.HTTP_403_FORBIDDEN)
              
-            if booking.status == 'canceled':
+            if booking.status == 'cancel':
                 return Response({'error': 'This booking is already canceled'}, status=status.HTTP_400_BAD_REQUEST)
 
             # Update the status to "canceled" instead of deleting
-            booking.status = 'canceled'
+            booking.status = 'cancel'
             booking.save()
+
+
+            details = {
+                "title":booking.package.name,
+                "number of people":booking.number_of_people,
+                "travel date":booking.travel_date,
+                "user name":booking.user.username,
+                }
+            notify_admin("Booking Cancel", details,user_email=request.user.email)
+            notify_user("Booking Cancel", details,user_email=request.user.email)
+
             return Response({'message': 'Booking cancel successfully'}, status=status.HTTP_204_NO_CONTENT)
         except BookingTour.DoesNotExist:
             return Response({'error': 'Booking not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -231,7 +243,7 @@ class CreateCheckoutSessionView(APIView):
             booking = BookingTour.objects.get(id=booking_id, user=request.user)  # Ensure user owns the booking
             
             # Check if booking status is canceled
-            if booking.status == 'canceled':
+            if booking.status == 'cancel':
                 return Response(
                     {"error": f"Booking '{booking.package.name}' has been canceled and cannot proceed to payment."},
                     status=status.HTTP_400_BAD_REQUEST
@@ -259,8 +271,8 @@ class CreateCheckoutSessionView(APIView):
                     "quantity": 1,
                 }],
                 mode="payment",
-                success_url=f"{settings.YOUR_DOMAIN}/api/payment-success?session_id={{CHECKOUT_SESSION_ID}}",
-                cancel_url=f"{settings.YOUR_DOMAIN}/api/payment-cancel",
+                success_url=f"{settings.YOUR_DOMAIN}/api/v1/payment-success?session_id={{CHECKOUT_SESSION_ID}}",
+                cancel_url=f"{settings.YOUR_DOMAIN}/api/v1/payment-cancel",
             )
 
             # Save payment details in the database
@@ -321,15 +333,22 @@ class PaymentSuccessView(APIView):
                 notify_admin(notification_type="Payment Successfully", details=payment_details, user_email=payment.booking.user.email)
                 notify_user(notification_type="Payment Successfully", details=payment_details, user_email=payment.booking.user.email)
 
-                # return redirect(f"/api/success/{payment.id}/")
+                context = {
+                'payment': payment,
+                'booking': payment.booking,
+                'package': payment.booking.package,
+                'user': payment.booking.user,
+                }
 
-                return Response({
-                    "message": "Payment successful!",
-                    "payment_id": payment.id,
-                    "transaction_id": payment.transaction_id,  # Include transaction ID in the response
-                    "amount": payment.amount,
-                    "payment_status": session.payment_status,
-                }, status=status.HTTP_200_OK)
+                return render(request, 'success.html', context)
+
+                # return Response({
+                #     "message": "Payment successful!",
+                #     "payment_id": payment.id,
+                #     "transaction_id": payment.transaction_id,  # Include transaction ID in the response
+                #     "amount": payment.amount,
+                #     "payment_status": session.payment_status,
+                # }, status=status.HTTP_200_OK)
             else:
                 return Response({'error': 'Payment not completed'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -338,26 +357,6 @@ class PaymentSuccessView(APIView):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-
-class SuccessPageView(APIView):
-    permission_classes = [AllowAny]
-
-    def get(self, request, payment_id):
-        try:
-            # Fetch the payment details by ID
-            payment = Payment.objects.get(id=payment_id)
-        
-            # Pass payment, booking, and other relevant details to the template
-            context = {
-                'payment': payment,
-                'booking': payment.booking,
-                'package': payment.booking.package,
-                'user': payment.booking.user,
-            }
-            return render(request, 'success.html', context)
-        except Payment.DoesNotExist:
-            raise Http404("Payment not found")
-
 
 class PaymentCancelView(APIView):
     permission_classes = [AllowAny]
@@ -387,39 +386,26 @@ class PaymentCancelView(APIView):
             notify_admin(notification_type="Payment Cancel", details=payment_details, user_email=payment.booking.user.email)
             notify_user(notification_type="Payment Cancel", details=payment_details, user_email=payment.booking.user.email)
 
-            # return redirect(f"/api/cancel/{payment.id}/")
-
-            return Response({
-                'message': 'Payment was canceled.',
-                "payment_id":payment.id,
-                "amount":payment.amount,
-                }, status=status.HTTP_200_OK)
-
-        except Payment.DoesNotExist:
-            return Response({'error': 'Payment not found'}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-
-class CancelPageView(APIView):
-    permission_classes = [AllowAny]
-
-    def get(self, request, payment_id):
-        try:
-            # Fetch the payment details by ID
-            payment = Payment.objects.get(id=payment_id)
-        
-            # Pass payment, booking, and other relevant details to the template
+             # Pass payment, booking, and other relevant details to the template
             context = {
                 'payment': payment,
                 'booking': payment.booking,
                 'package': payment.booking.package,
                 'user': payment.booking.user,
             }
-            return render(request, 'cancel.html', context)
-        except Payment.DoesNotExist:
-            raise Http404("Payment not found")
+            return render(request, 'cancel.html')
 
+            # return Response({
+            #     'message': 'Payment was canceled.',
+            #     "payment_id":payment.id,
+            #     "amount":payment.amount,
+            #     }, status=status.HTTP_200_OK)
+
+        except Payment.DoesNotExist:
+            return Response({'error': 'Payment not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
 
 # contactquery view 
 
