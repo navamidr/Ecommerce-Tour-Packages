@@ -30,10 +30,6 @@ class Packages(models.Model):
     amount = models.IntegerField()
     destination = models.CharField(max_length=100)
     is_approved = models.BooleanField(default=False)
-
-    # class Meta:
-    #     verbrose_name = 'Package'
-    #     verbrose_prural = 'Packages'
     
     def __str__(self):
         return self.name
