@@ -8,7 +8,6 @@ from rest_framework.permissions import AllowAny,IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from .models import Packages,BookingTour,PackageImage,CustomUser,Payment
 from rest_framework.views import APIView
-from rest_framework.parsers import MultiPartParser, FormParser
 from .utils import notify_admin,notify_user
 from rest_framework.exceptions import ValidationError
 from .permissions import IsAgent, IsOwner,IsUser
@@ -60,7 +59,6 @@ class PackagesListView(APIView):
 class PackageCreateView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAgent]
-    parser_classes = [MultiPartParser, FormParser]  # Allow handling file uploads
 
     def post(self, request):
         serializer = PackageSerializer(data=request.data, context={"request": request})
@@ -83,7 +81,6 @@ class PackageCreateView(APIView):
 class PackageUpdateView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsAgent, IsOwner]
-    parser_classes = [MultiPartParser, FormParser]  # Allow handling file uploads
 
     def get(self, request):
         user = request.user
@@ -169,9 +166,7 @@ class BookingCreate(APIView):
                     "user":booking.user.username,
                     "number of people":booking.number_of_people,
                     "travel date":booking.travel_date,
-
                  }
-                
                 notify_admin("Booking Successfully", details,user_email=request.user.email)
                 notify_user("Booking Successfully", details,user_email=request.user.email)
 
@@ -212,7 +207,6 @@ class BookingCreate(APIView):
             # Update the status to "canceled" instead of deleting
             booking.status = 'cancel'
             booking.save()
-
 
             details = {
                 "title":booking.package.name,
@@ -328,7 +322,6 @@ class PaymentSuccessView(APIView):
                     "Status": payment.status,
                     "Booking": str(payment.booking),
                 }
-
                 # Notify admin and user
                 notify_admin(notification_type="Payment Successfully", details=payment_details, user_email=payment.booking.user.email)
                 notify_user(notification_type="Payment Successfully", details=payment_details, user_email=payment.booking.user.email)
@@ -351,7 +344,6 @@ class PaymentSuccessView(APIView):
                 # }, status=status.HTTP_200_OK)
             else:
                 return Response({'error': 'Payment not completed'}, status=status.HTTP_400_BAD_REQUEST)
-
         except Payment.DoesNotExist:
             return Response({'error': 'Payment not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
@@ -381,7 +373,6 @@ class PaymentCancelView(APIView):
                 "title": payment.booking.package.name,
                 "Booking": str(payment.booking),
             }
-
                 # Notify admin and user
             notify_admin(notification_type="Payment Cancel", details=payment_details, user_email=payment.booking.user.email)
             notify_user(notification_type="Payment Cancel", details=payment_details, user_email=payment.booking.user.email)
