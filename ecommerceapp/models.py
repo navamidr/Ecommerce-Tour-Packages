@@ -18,7 +18,7 @@ class CustomUser(AbstractUser):
     role = models.IntegerField(choices=Roles.choices, default=Roles.USER) 
     
     def __str__(self):
-        return f"{self.username} ({self.get_role_display()})"
+        return f"{self.username}"
     
 
 class Packages(models.Model):

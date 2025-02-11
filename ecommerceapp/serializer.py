@@ -154,11 +154,8 @@ class BookingSerializer(serializers.ModelSerializer):
         amount = package.amount * number_of_people
         return BookingTour.objects.create(
             user=user,
-            package=package,
-            number_of_people=number_of_people,
-            travel_date=validated_data['travel_date'],
-            status=validated_data.get('status', 'pending'),
-            amount=amount
+            amount=amount,
+            **validated_data
         )
 
 

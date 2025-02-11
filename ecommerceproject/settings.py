@@ -170,7 +170,7 @@ EMAIL_PORT = env.int('EMAIL_PORT', default=587)
 EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)  
 EMAIL_HOST_USER = env.str('EMAIL_HOST_USER', default=False)
 EMAIL_HOST_PASSWORD = env.str('EMAIL_HOST_PASSWORD', default='')
-DEFAULT_FROM_EMAIL = env.str('DEFAULT_FROM_EMAIL', default='admin@gmail.com')
+DEFAULT_FROM_EMAIL = env.str('DEFAULT_FROM_EMAIL', default='navamidr01@gmail.com')
 
 
 MEDIA_URL = '/media/'
